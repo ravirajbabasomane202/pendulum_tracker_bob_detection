@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pendulum Trajectory Analysis Dashboard</title>
+<script src="{{ url_for('static', filename='plotly.min.js') }}"></script>
+<style>
+  :root { --bg:#0f1419; --card:#1a2332; --border:#2d3a4f; --text:#e7ecf3; --muted:#8b9cb3; --accent:#3b82f6;
+          --accent2:#10b981; --danger:#ef4444; --warn:#f59e0b; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif; background:var(--bg); color:var(--text);
+         min-height:100vh; display:flex; flex-direction:column; }
+  header { background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%); border-bottom:1px solid var(--border);
+           padding:12px 24px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;
+           position:sticky; top:0; z-index:100; }
+  header h1 { font-size:1.25rem; font-weight:700; background:linear-gradient(90deg,#60a5fa,#34d399);
+              -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  .header-actions { display:flex; gap:8px; flex-wrap:wrap; }
+  .btn { background:var(--accent); color:#fff; border:none; padding:8px 14px; border-radius:8px; font-size:.875rem;
+         font-weight:500; cursor:pointer; transition:all .15s; display:inline-flex; align-items:center; gap:6px;
+         text-decoration:none; font-family:inherit; }
+  .btn:hover { filter:brightness(1.15); transform:translateY(-1px); }
+  .btn:disabled { opacity:.45; cursor:not-allowed; transform:none; filter:none; }
+  .btn-secondary { background:#334155; } .btn-success { background:var(--accent2); }
+  .btn-sm { padding:4px 10px; font-size:.75rem; }
+  .layout { display:grid; grid-template-columns:320px 1fr; flex:1; min-height:0; }
+  @media (max-width:960px) { .layout { grid-template-columns:1fr; } .sidebar { max-height:45vh; } }
+  .sidebar { background:var(--card); border-right:1px solid var(--border); padding:16px; overflow-y:auto;
+             position:sticky; top:57px; height:calc(100vh - 57px); }
+  @media (max-width:960px) { .sidebar { position:static; height:auto; } }
+  .sidebar h2 { font-size:.9rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:20px 0 12px; }
+  .sidebar h2:first-child { margin-top:0; }
+  .control-group { margin-bottom:14px; transition:opacity .15s; }
+  .control-group.dim { opacity:.35; }
+  .control-group label { display:block; font-size:.8rem; color:var(--muted); margin-bottom:4px; }
+  select, input[type=number], input[type=range] { width:100%; background:#0f172a; border:1px solid var(--border);
+         color:var(--text); padding:8px 10px; border-radius:6px; font-size:.875rem; font-family:inherit; }
+  input[type=range] { padding:0; }
+  .range-row { display:flex; align-items:center; gap:8px; }
+  .range-row span { font-size:.8rem; min-width:40px; text-align:right; }
+  .checkbox-row { display:flex; align-items:center; gap:8px; margin:6px 0; font-size:.85rem; }
+  .checkbox-row input { width:auto; }
+  .main { padding:16px; overflow-y:auto; background:#0b0f14; min-width:0; }
+  .card-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(480px,100%),1fr)); gap:16px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:12px; overflow:hidden; min-width:0; }
+  .card.hidden { display:none; }
+  .card-header { padding:12px 16px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between;
+                 align-items:center; background:rgba(0,0,0,.2); gap:8px; }
+  .card-header h3 { font-size:.95rem; font-weight:600; }
+  .card-body { padding:12px 16px 16px; }
+  .plot { width:100%; height:320px; } .plot-tall { height:400px; }
+  .table-wrap { overflow:auto; max-height:280px; margin-bottom:10px; }
+  .table-wrap:empty, .stats-grid:empty, .note:empty { display:none; }
+  table { width:100%; border-collapse:collapse; font-size:.8rem; }
+  th, td { padding:6px 10px; text-align:left; border-bottom:1px solid var(--border); }
+  th { color:var(--muted); font-weight:500; position:sticky; top:0; background:var(--card); }
+  td { font-variant-numeric:tabular-nums; }
+  .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:10px; margin-bottom:12px; }
+  .stat { background:#0f172a; border-radius:8px; padding:10px; text-align:center; min-width:0; }
+  .stat .val { font-size:1.05rem; font-weight:700; color:#60a5fa; overflow-wrap:anywhere; }
+  .stat .lbl { font-size:.7rem; color:var(--muted); margin-top:2px; }
+  .loading { position:fixed; top:68px; right:20px; background:#1e293b; border:1px solid var(--border); padding:10px 16px;
+             border-radius:8px; display:none; z-index:200; font-size:.85rem; box-shadow:0 6px 24px rgba(0,0,0,.4); }
+  .loading.show { display:block; }
+  .toggle-bar { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px; padding:10px; background:var(--card);
+                border-radius:10px; border:1px solid var(--border); align-items:center; }
+  .toggle-chip { padding:4px 12px; border-radius:20px; font-size:.75rem; background:#334155; cursor:pointer;
+                 user-select:none; transition:all .15s; }
+  .toggle-chip.active { background:var(--accent); }
+  .toggle-chip.util { background:transparent; border:1px solid var(--border); color:var(--muted); }
+  .note { font-size:.75rem; color:var(--muted); margin-top:8px; line-height:1.4; }
+  .banner { margin-bottom:12px; padding:10px 14px; border-radius:8px; font-size:.82rem; line-height:1.45; display:none; }
+  .banner.warn { background:rgba(245,158,11,.12); border:1px solid rgba(245,158,11,.5); color:#fcd34d; }
+  .banner.err { background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.5); color:#fca5a5; }
+  .banner.show { display:block; }
+  .empty { padding:60px 20px; text-align:center; color:var(--muted); }
+  .empty h2 { color:var(--text); margin-bottom:8px; }
+  .meta-line { font-size:.75rem; color:var(--muted); margin-top:6px; line-height:1.4; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Pendulum Trajectory Analysis Dashboard</h1>
+  <div class="header-actions">
+    <a class="btn btn-secondary" href="/">&larr; Pendulum Lab</a>
+    <button class="btn btn-secondary" onclick="resetFilters()">Reset Filters</button>
+    <button class="btn btn-secondary" id="btnCsv" onclick="downloadData('filtered.csv','pendulum_filtered.csv','Preparing CSV…')">Filtered CSV</button>
+    <button class="btn btn-success" id="btnImg" onclick="downloadData('images.zip','pendulum_dashboard_images.zip','Rendering images…')">Download Images</button>
+    <button class="btn" id="btnPpt" onclick="downloadData('report.pptx','Pendulum_Trajectory_Analysis_Dashboard.pptx','Building PowerPoint…')">Download PPT</button>
+  </div>
+</header>
+
+<div class="loading" id="loading">Computing…</div>
+
+<div class="layout">
+  <aside class="sidebar">
+    <h2>Data Source</h2>
+    <div class="control-group">
+      <label for="datasetSelect">Dataset</label>
+      <select id="datasetSelect"></select>
+      <div class="meta-line" id="datasetMeta"></div>
+      <button class="btn btn-secondary btn-sm" style="margin-top:8px;width:100%;justify-content:center"
+              onclick="document.getElementById('datasetFile').click()">Load CSV / JSON export…</button>
+      <input type="file" id="datasetFile" accept=".csv,.json,text/csv,application/json" hidden>
+    </div>
+    <div class="control-group">
+      <label for="seriesSelect">Signal series</label>
+      <select id="seriesSelect"></select>
+    </div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="overlayRaw" checked>
+      <label for="overlayRaw">Overlay original vs filtered</label>
+    </div>
+
+    <h2>Noise Removal &amp; Smoothing</h2>
+    <div class="control-group">
+      <label for="filterType">Filter type</label>
+      <select id="filterType">
+        <option value="none">None (raw)</option>
+        <option value="ma">Moving Average</option>
+        <option value="sg" selected>Savitzky-Golay</option>
+        <option value="gauss">Gaussian</option>
+        <option value="median">Median</option>
+        <option value="butter_lp">Butterworth Low-pass</option>
+        <option value="butter_hp">Butterworth High-pass</option>
+        <option value="butter_bp">Butterworth Band-pass</option>
+        <option value="lowess">LOWESS (local linear)</option>
+      </select>
+    </div>
+    <div class="control-group" data-for="ma sg gauss median lowess">
+      <label>Window size (samples)</label>
+      <div class="range-row"><input type="range" id="windowSize" min="3" max="101" step="2" value="11"><span id="windowSizeVal">11</span></div>
+    </div>
+    <div class="control-group" data-for="sg">
+      <label>Poly order (SG)</label>
+      <div class="range-row"><input type="range" id="polyOrder" min="1" max="5" step="1" value="3"><span id="polyOrderVal">3</span></div>
+    </div>
+    <div class="control-group" data-for="butter_lp butter_hp butter_bp">
+      <label id="cutoffLabel">Cutoff freq (Hz)</label>
+      <div class="range-row"><input type="range" id="cutoff" min="0.1" max="10" step="0.1" value="2.0"><span id="cutoffVal">2.0</span></div>
+    </div>
+    <div class="control-group" data-for="butter_bp">
+      <label>Band high (Hz)</label>
+      <div class="range-row"><input type="range" id="cutoffHigh" min="0.5" max="14" step="0.1" value="3.0"><span id="cutoffHighVal">3.0</span></div>
+    </div>
+
+    <h2>Outlier Removal</h2>
+    <div class="control-group">
+      <label for="outlierMethod">Method</label>
+      <select id="outlierMethod">
+        <option value="none" selected>None</option>
+        <option value="zscore">Z-score</option>
+        <option value="iqr">IQR</option>
+        <option value="hampel">Hampel</option>
+      </select>
+    </div>
+    <div class="control-group" data-for-out="zscore iqr hampel">
+      <label>Threshold (Z / k)</label>
+      <div class="range-row"><input type="range" id="outlierThresh" min="1" max="5" step="0.1" value="3.0"><span id="outlierThreshVal">3.0</span></div>
+    </div>
+
+    <h2>Sliding Window</h2>
+    <div class="control-group">
+      <label>Window (s)</label>
+      <div class="range-row"><input type="range" id="slideWin" min="4" max="60" step="1" value="10"><span id="slideWinVal">10</span></div>
+    </div>
+    <div class="control-group">
+      <label>Step (s)</label>
+      <div class="range-row"><input type="range" id="slideStep" min="0.25" max="10" step="0.25" value="0.5"><span id="slideStepVal">0.5</span></div>
+    </div>
+
+    <h2>Display Options</h2>
+    <div class="checkbox-row">
+      <input type="checkbox" id="downsample" checked>
+      <label for="downsample">Downsample for display (max 4k pts)</label>
+    </div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="showVelocity">
+      <label for="showVelocity">Show velocity traces on the signal plot</label>
+    </div>
+    <button class="btn" style="width:100%;margin-top:12px;justify-content:center" onclick="applyFilters()">Apply / Refresh</button>
+  </aside>
+
+  <main class="main">
+    <div class="banner warn" id="warnBanner"></div>
+    <div class="banner err" id="errBanner"></div>
+    <div class="toggle-bar" id="toggleBar"></div>
+    <div class="card-grid" id="cardGrid"></div>
+    <div class="empty" id="emptyState" style="display:none">
+      <h2>No analysed dataset yet</h2>
+      <p>Analyse a video in the Pendulum Lab first, or load a <b>trajectory_full.csv / .json</b> export with the button in the sidebar.</p>
+    </div>
+  </main>
+</div>
+
+<script>
+// ===================== STATE =====================
+const INITIAL_ID = {{ initial_id|tojson }};
+let DS = null;            // {id, meta}
+let A = null;             // last analysis result from the server
+let debounceTimer = null, inflight = null;
+const CARD_IDS = ['signals','periods','amplitudes','shape','spectral','sliding','phasespace','stats','histograms',
+                  'correlation','velocity','energy','residuals'];
+const CARD_TITLES = {
+  signals:'Tracked Signals — x(t), y(t)', periods:'Periods and Frequencies', amplitudes:'Amplitudes and Damping',
+  shape:'Orientation, Shape & Classification', spectral:'Spectral Check & Independent Damping Fit',
+  sliding:'Sliding-Window Evolution', phasespace:'Phase Space', stats:'Statistical Summary',
+  histograms:'Histograms & Distributions', correlation:'Correlation Matrix', velocity:'Velocity & Acceleration',
+  energy:'Energy Proxy & Decay', residuals:'Residuals & Outlier Detection'
+};
+const CHIP = {signals:'Signals', periods:'Periods', amplitudes:'Amplitudes', shape:'Shape', spectral:'Spectral',
+  sliding:'Sliding', phasespace:'Phase space', stats:'Statistics', histograms:'Histograms', correlation:'Correlation',
+  velocity:'Velocity', energy:'Energy', residuals:'Residuals'};
+const TALL = new Set(['shape','phasespace','histograms','energy']);
+const $ = id => document.getElementById(id);
+const GRID = '#2d3a4f';
+
+// ===================== SMALL HELPERS =====================
+function showLoading(on, text) { const el = $('loading'); if (text) el.textContent = text; el.classList.toggle('show', on); }
+function banner(id, msgs) { const el = $(id); const m = [].concat(msgs || []).filter(Boolean);
+  el.innerHTML = m.map(s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')).join('<br>'); el.classList.toggle('show', m.length > 0); }
+function debounce(fn, ms = 250) { clearTimeout(debounceTimer); debounceTimer = setTimeout(fn, ms); }
+function f(v, d = 3) { return (v === null || v === undefined || !isFinite(v)) ? '–' : Number(v).toFixed(d); }
+function tiles(list) { return list.map(([v, l]) => `<div class="stat"><div class="val">${v}</div><div class="lbl">${l}</div></div>`).join(''); }
+function tableHTML(head, rows) {
+  return `<table><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr>` +
+    rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('') + '</table>';
+}
+function xyAxis(extra) { return Object.assign({ gridcolor: GRID, zerolinecolor: GRID }, extra || {}); }
+function layout(extra, h) {
+  const L = { margin:{t:28,r:22,b:46,l:60}, paper_bgcolor:'#1a2332', plot_bgcolor:'#0f172a',
+              font:{color:'#e7ecf3', size:11}, legend:{orientation:'h', y:1.14}, height:h || 320,
+              xaxis:xyAxis(), yaxis:xyAxis() };
+  for (const k in (extra || {})) {
+    L[k] = /^[xy]axis\d*$/.test(k) ? xyAxis(extra[k]) : extra[k];
+  }
+  return L;
+}
+function draw(id, traces, lay) {
+  const el = $('p-' + id);
+  el.style.height = (lay.height || 320) + 'px';       // card height always matches the plot (no overlap with the note)
+  Plotly.react(el, traces, lay, { responsive:true, displaylogo:false });
+}
+function setCard(id, { tilesHtml = '', tableHtml = '', note = '' }) {
+  $('t-' + id).innerHTML = tilesHtml; $('tb-' + id).innerHTML = tableHtml; $('n-' + id).innerHTML = note;
+}
+function expCurve(t, A0, g) { return (A0 !== null && g !== null) ? t.map(v => A0 * Math.exp(-g * v)) : null; }
+
+// ===================== CARDS (markup) =====================
+function makeCard(id) {
+  const div = document.createElement('div');
+  div.className = 'card'; div.id = 'card-' + id;
+  div.innerHTML = `
+    <div class="card-header"><h3>${CARD_TITLES[id]}</h3>
+      <div><button class="btn btn-sm btn-secondary" onclick="downloadPlot('${id}')">PNG</button>
+           <button class="btn btn-sm btn-secondary" onclick="toggleCard('${id}')">Hide</button></div></div>
+    <div class="card-body" id="body-${id}">
+      <div class="stats-grid" id="t-${id}"></div>
+      <div class="table-wrap" id="tb-${id}"></div>
+      <div class="${TALL.has(id) ? 'plot-tall' : 'plot'}" id="p-${id}"></div>
+      <p class="note" id="n-${id}"></p>
+    </div>`;
+  return div;
+}
+const HIDDEN_KEY = 'pendulumDashHidden';
+function loadHidden() { try { return new Set(JSON.parse(localStorage.getItem(HIDDEN_KEY) || '[]')); } catch (_) { return new Set(); } }
+function saveHidden() { try { localStorage.setItem(HIDDEN_KEY, JSON.stringify(CARD_IDS.filter(i => $('card-' + i).classList.contains('hidden')))); } catch (_) {} }
+function setCardVisible(id, visible) {
+  $('card-' + id).classList.toggle('hidden', !visible);
+  const chip = document.querySelector(`[data-card="${id}"]`); if (chip) chip.classList.toggle('active', visible);
+  const btn = $('card-' + id).querySelector('.card-header .btn:last-child'); if (btn) btn.textContent = 'Hide';
+  if (visible) setTimeout(() => { const el = $('p-' + id); if (el && el.data) Plotly.Plots.resize(el); }, 30);
+}
+function toggleCard(id) { setCardVisible(id, $('card-' + id).classList.contains('hidden')); saveHidden(); }
+function setAll(v) { CARD_IDS.forEach(i => setCardVisible(i, v)); saveHidden(); }
+function buildToggleBar() {
+  $('toggleBar').innerHTML = CARD_IDS.map(id => `<span class="toggle-chip active" data-card="${id}" onclick="toggleCard('${id}')">${CHIP[id]}</span>`).join('') +
+    `<span class="toggle-chip util" onclick="setAll(true)">Show all</span><span class="toggle-chip util" onclick="setAll(false)">Hide all</span>`;
+}
+
+// ===================== RENDERERS =====================
+const R = {};
+R.signals = a => {
+  const v = a.view, u = a.unit, p = a.params, tr = [];
+  if ($('overlayRaw').checked) {
+    tr.push({x:v.t, y:v.xs, name:'x original', line:{color:'#60a5fa', width:.8, dash:'dot'}, opacity:.55},
+            {x:v.t, y:v.ys, name:'y original', line:{color:'#34d399', width:.8, dash:'dot'}, opacity:.55});
+  }
+  tr.push({x:v.t, y:v.x, name:'x filtered', line:{color:'#60a5fa', width:1.2}},
+          {x:v.t, y:v.y, name:'y filtered', line:{color:'#34d399', width:1.2}});
+  const lay = layout({ xaxis:{title:'Time (s)'}, yaxis:{title:`Position (${u})`} }, 340);
+  if (p.show_velocity) {
+    tr.push({x:v.t, y:v.vx, name:'vx', yaxis:'y2', line:{color:'#f59e0b', width:.8}},
+            {x:v.t, y:v.vy, name:'vy', yaxis:'y2', line:{color:'#f472b6', width:.8}});
+    lay.yaxis2 = { title:`Velocity (${u}/s)`, overlaying:'y', side:'right', showgrid:false, color:'#f59e0b' };
+  }
+  draw('signals', tr, lay);
+  setCard('signals', {
+    tilesHtml: tiles([[f(a.duration,2)+' s','Duration'],[a.n.toLocaleString(),'Samples'],[f(a.fs,2)+' Hz','Sampling rate'],
+      [a.coverage == null ? '–' : f(a.coverage*100,1)+' %','Tracking coverage'],
+      [`${a.outliers.x} / ${a.outliers.y}`,'Outliers replaced x / y']]),
+    note: `${a.series_label} · ${a.filter_desc}. Showing ${a.shown.toLocaleString()} of ${a.n.toLocaleString()} samples.`});
+};
+R.periods = a => {
+  const P = a.periods, S = a.spectrum, top = Math.max(...S.x, ...S.y, 0);
+  const tr = [{x:S.f, y:S.x, name:'X spectrum', line:{color:'#60a5fa'}}, {x:S.f, y:S.y, name:'Y spectrum', line:{color:'#34d399'}}];
+  if (P.fx_fft != null) tr.push({x:[P.fx_fft,P.fx_fft], y:[0,top], name:'fx peak', mode:'lines', line:{color:'#60a5fa', dash:'dash', width:1}, showlegend:false});
+  if (P.fy_fft != null) tr.push({x:[P.fy_fft,P.fy_fft], y:[0,top], name:'fy peak', mode:'lines', line:{color:'#34d399', dash:'dash', width:1}, showlegend:false});
+  draw('periods', tr, layout({ xaxis:{title:'Frequency (Hz)', range:[0,S.range_hi]}, yaxis:{title:`Amplitude (${a.unit})`} }, 280));
+  setCard('periods', {
+    tilesHtml: tiles([[f(P.Tx),'Tx peak (s)'],[f(P.Ty),'Ty peak (s)'],[f(P.fx_peak,4),'fx peak (Hz)'],[f(P.fy_peak,4),'fy peak (Hz)'],
+      [f(P.fx_fft,4),'fx FFT (Hz)'],[f(P.fy_fft,4),'fy FFT (Hz)']]),
+    tableHtml: tableHTML(['Metric','Peak','FFT'], [
+      ['Tx / Ty (s)', `${f(P.Tx)} / ${f(P.Ty)}`, `${f(P.Tx_fft)} / ${f(P.Ty_fft)}`],
+      ['Period SD Tx / Ty (s)', `${f(P.Tx_sd)} / ${f(P.Ty_sd)}`, '–'],
+      ['fx (Hz)', f(P.fx_peak,4), f(P.fx_fft,4)], ['fy (Hz)', f(P.fy_peak,4), f(P.fy_fft,4)],
+      ['Δf = fx − fy (Hz)', f(P.df_peak,4), f(P.df_fft,4)], ['fx / fy', f(P.ratio_peak,4), f(P.ratio_fft,4)]]),
+    note:'Peak method vs FFT may differ due to spectral resolution, harmonics or non-stationarity. Report the method with every result.'});
+};
+R.amplitudes = a => {
+  const A_ = a.amp, tt = A_.env_t || [];
+  const tr = [{x:tt, y:A_.env_a, mode:'markers', name:'Envelope (sliding RMS)', marker:{color:'#f59e0b', size:4}}];
+  const m = expCurve(tt, A_.A0, A_.gamma); if (m) tr.push({x:tt, y:m, name:'Exponential fit', line:{color:'#ef4444', width:2}});
+  draw('amplitudes', tr, layout({ xaxis:{title:'Time (s)'}, yaxis:{title:`Amplitude (${a.unit})`} }, 300));
+  setCard('amplitudes', {
+    tilesHtml: tiles([[f(A_.Ax,1),`Ax (${a.unit})`],[f(A_.Ay,1),`Ay (${a.unit})`],[f(A_.A0,2),'A₀ envelope'],[f(A_.gamma,5),'γ (s⁻¹)'],
+      [f(A_.tau,1),'τ = 1/γ (s)'],[f(A_.Q,1),'Q factor'],[A_.decay == null ? '–' : f(A_.decay*100,1)+' %','Decay (1st→last third)']]),
+    note:`Model: A(t) = A₀ exp(−γt). Ax/Ay = ${f(A_.ratio,2)}. Q = π/(γ·T), T = ${f(a.periods.T_meas)} s (measured).`});
+};
+R.shape = a => {
+  const S = a.shape, v = a.view, u = a.unit, n = v.x.length;
+  const tr = [{x:v.x, y:v.y, mode:'lines', line:{color:'#a78bfa', width:1}, name:'Trajectory'},
+    {x:[v.x[0]], y:[v.y[0]], mode:'markers', name:'start', marker:{color:'#10b981', size:9}},
+    {x:[v.x[n-1]], y:[v.y[n-1]], mode:'markers', name:'end', marker:{color:'#ef4444', size:9}}];
+  draw('shape', tr, layout({ xaxis:{title:`x (${u})`, scaleanchor:'y'}, yaxis:{title:`y (${u})`} }, 400));
+  const t = [[S.label,'Classification'],[f(S.theta,1)+'°','θ mean'],[f(S.drift,2)+' °/s','θ drift'],[f(S.ecc,3),'Minor / major'],
+    [f(S.ecc_e,3),'Eccentricity e'],[f(a.amp.ratio,2),'Ax / Ay'],[f(S.phase,1)+'°','x–y phase'],[f(S.L_eq,3)+' m','L eq (from T meas)']];
+  if (S.T_theory != null) t.push([f(S.T_theory)+' s','T theory'], [f(S.T_err*100,1)+' %','T rel. error']);
+  setCard('shape', { tilesHtml: tiles(t),
+    note:`${S.detail}. Equivalent length L = g (T/2π)² with g = ${f(S.g,2)} m/s² and T = ${f(a.periods.T_meas)} s.` });
+};
+R.spectral = a => {
+  const S = a.spectrum, P = a.periods, rows = a.damping.rows;
+  const lay = layout({ xaxis:{title:'f (Hz)', range:[0,S.range_hi]}, yaxis:{title:'|FFT| amplitude', type:'log'} }, 280);
+  draw('spectral', [{x:S.f, y:S.x, name:'X', line:{color:'#60a5fa'}}, {x:S.f, y:S.y, name:'Y', line:{color:'#34d399'}}], lay);
+  const first = rows[1] || {};
+  setCard('spectral', {
+    tilesHtml: tiles([[f(P.fx_fft,4),'fx FFT'],[f(P.fy_fft,4),'fy FFT'],[f(P.ratio_fft,3),'fx/fy ratio'],
+      [f(rows[0] && rows[0].gamma,5),'γ envelope'],[f(first.gamma,5),'γ peaks of r(t)']]),
+    tableHtml: tableHTML(['Damping method','γ (s⁻¹)','τ (s)','A₀','R²'],
+      rows.map(r => [r.method, f(r.gamma,5), f(r.tau,1), f(r.A0,2), f(r.r2,3)])),
+    note:'Log-scale spectrum reveals harmonics. Several independent exponential fits are compared; large differences or low R² mean the decay is not a single exponential (e.g. faster early, slower late).'});
+};
+R.sliding = a => {
+  const S = a.sliding;
+  if (!S.t || S.t.length < 2) {
+    Plotly.purge($('p-sliding'));
+    $('p-sliding').innerHTML = '';
+    setCard('sliding', { note:`Not enough data: the recording must be longer than ${f(S.need,0)} s for a ${f(S.win,0)} s window.` });
+    return;
+  }
+  const lay = layout({ xaxis:{anchor:'y'}, xaxis2:{title:'Time (s)', anchor:'y2', matches:'x'},
+    yaxis:{title:'Period (s)', domain:[.56,1], anchor:'x'}, yaxis2:{title:'θ (deg)', domain:[0,.44], anchor:'x2'}, legend:{orientation:'h', y:1.1} }, 360);
+  draw('sliding', [
+    {x:S.t, y:S.Tx, name:'Tx', mode:'lines+markers', line:{color:'#60a5fa'}, marker:{size:3}},
+    {x:S.t, y:S.Ty, name:'Ty', mode:'lines+markers', line:{color:'#34d399'}, marker:{size:3}},
+    {x:S.t, y:S.theta, name:'θ', xaxis:'x2', yaxis:'y2', line:{color:'#a78bfa', width:1.2}}], lay);
+  setCard('sliding', {
+    tilesHtml: tiles([[f(S.Tx_med),'Tx median (s)'],[f(S.Ty_med),'Ty median (s)'],[f(S.Tx_sd),'Tx SD'],[f(S.Ty_sd),'Ty SD'],
+      [f(S.drift,2)+' °/s','θ drift'],[f(S.ecc_med,3),'Minor/major median']]),
+    note:`Sliding windows of ${f(S.win,0)} s every ${f(S.step,2)} s (step is enlarged automatically for very long recordings).`});
+};
+R.phasespace = a => {
+  const v = a.view, u = a.unit;
+  draw('phasespace', [{x:v.x, y:v.vx, mode:'lines', name:'x – vx', line:{color:'#f472b6', width:.8}},
+                      {x:v.y, y:v.vy, mode:'lines', name:'y – vy', line:{color:'#60a5fa', width:.8}, opacity:.8}],
+       layout({ xaxis:{title:`position (${u})`}, yaxis:{title:`velocity (${u}/s)`} }, 380));
+  setCard('phasespace', {
+    tilesHtml: tiles([[f(a.stats.x.std,1),`x SD (${u})`],[f(a.stats.y.std,1),`y SD (${u})`],[f(a.speed.peak,0),`Peak speed (${u}/s)`],[f(a.speed.median,0),'Median speed']]),
+    note:'Phase portrait spirals inward as damping removes energy. Velocities are central differences of the filtered series.'});
+};
+R.stats = a => {
+  const u = a.unit, keys = [['x',`x (${u})`],['y',`y (${u})`],['vx',`vx (${u}/s)`],['vy',`vy (${u}/s)`],['ax',`ax (${u}/s²)`],['ay',`ay (${u}/s²)`]];
+  const cols = ['mean','std','min','max','median','rms'];
+  const cell = k => keys.map(([key]) => f(a.stats[key][k], 2));
+  const el = $('p-stats'); el.style.height = '230px';
+  Plotly.react(el, [{ type:'table', columnwidth:[1.6,1,1,1,1,1,1],
+    header:{ values:['Signal','Mean','SD','Min','Max','Median','RMS'], align:'left', fill:{color:'#0f172a'}, font:{color:'#8b9cb3', size:12}, line:{color:GRID} },
+    cells:{ values:[keys.map(k => k[1]), ...cols.map(cell)], align:'left', fill:{color:'#1a2332'}, font:{color:'#e7ecf3', size:12}, line:{color:GRID}, height:28 } }],
+    { margin:{t:6,r:6,b:6,l:6}, paper_bgcolor:'#1a2332', height:230 }, { responsive:true, displaylogo:false });
+  setCard('stats', { note:`Statistics over the full filtered series (${a.n.toLocaleString()} samples).` });
+};
+R.histograms = a => {
+  const H = a.hist;
+  draw('histograms', [{x:H.x.c, y:H.x.n, type:'bar', name:'x', opacity:.7, marker:{color:'#60a5fa'}},
+                      {x:H.y.c, y:H.y.n, type:'bar', name:'y', opacity:.7, marker:{color:'#34d399'}}],
+       layout({ barmode:'overlay', xaxis:{title:`Position (${a.unit})`}, yaxis:{title:'Count'} }, 360));
+  setCard('histograms', { note:'60-bin histograms of the filtered x and y positions (computed on all samples).' });
+};
+R.correlation = a => {
+  const C = a.corr, z = C.matrix.map(r => r.map(v => v === null ? NaN : v));
+  draw('correlation', [{ type:'heatmap', z, x:C.labels, y:C.labels, zmin:-1, zmax:1, colorscale:'RdBu', reversescale:true,
+    text:z.map(r => r.map(v => isFinite(v) ? v.toFixed(3) : '–')), texttemplate:'%{text}', hovertemplate:'%{y} vs %{x}: %{text}<extra></extra>' }],
+    layout({ yaxis:{autorange:'reversed'}, margin:{t:20,r:20,b:40,l:50} }, 320));
+  setCard('correlation', { note:'Pearson correlation of position and velocity components (+1 / −1 = perfectly linear).' });
+};
+R.velocity = a => {
+  const v = a.view, u = a.unit;
+  const lay = layout({ xaxis:{anchor:'y'}, xaxis2:{title:'t (s)', anchor:'y2', matches:'x'},
+    yaxis:{title:`v (${u}/s)`, domain:[.56,1], anchor:'x'}, yaxis2:{title:`a (${u}/s²)`, domain:[0,.44], anchor:'x2'}, legend:{orientation:'h', y:1.1} }, 440);
+  draw('velocity', [
+    {x:v.t, y:v.vx, name:'vx', line:{color:'#60a5fa', width:1}}, {x:v.t, y:v.vy, name:'vy', line:{color:'#34d399', width:1}},
+    {x:v.t, y:v.ax, name:'ax', xaxis:'x2', yaxis:'y2', line:{color:'#f59e0b', width:1}},
+    {x:v.t, y:v.ay, name:'ay', xaxis:'x2', yaxis:'y2', line:{color:'#ef4444', width:1}, opacity:.8}], lay);
+  setCard('velocity', { note:'Central-difference derivatives of the filtered series. Differentiation amplifies noise — apply a smoothing filter for clean acceleration traces.' });
+};
+R.energy = a => {
+  const v = a.view, E = a.energy;
+  draw('energy', [
+    {x:v.t, y:v.ke, name:'KE proxy', line:{color:'#60a5fa', width:1}}, {x:v.t, y:v.pe, name:'PE proxy', line:{color:'#34d399', width:1}},
+    {x:v.t, y:v.te, name:'Total', line:{color:'#f59e0b', width:1.2}}, {x:v.t, y:v.tes, name:'Total (1-period avg)', line:{color:'#ef4444', width:2}}],
+    layout({ xaxis:{title:'t (s)'}, yaxis:{title:'Energy proxy (arb. units)'} }, 360));
+  setCard('energy', {
+    tilesHtml: tiles([[f(E.omega0,3),'ω₀ = 2π/T (rad/s)'],[f(E.E_start,1),'Energy start'],[f(E.E_end,1),'Energy end'],[f(E.gamma_E,5),'γ from energy (s⁻¹)']]),
+    note:'KE = ½v², PE = ½ω₀²r² (same units), so the total is conserved without damping. Not calibrated to physical energy.'});
+};
+R.residuals = a => {
+  const v = a.view, r = a.resid, u = a.unit;
+  draw('residuals', [{x:v.t, y:v.rx, name:'Residual x', line:{color:'#f87171', width:.8}},
+                     {x:v.t, y:v.ry, name:'Residual y', line:{color:'#a78bfa', width:.8}}],
+       layout({ xaxis:{title:'t (s)'}, yaxis:{title:`Residual (${u})`} }, 280));
+  setCard('residuals', {
+    tilesHtml: tiles([[f(r.x.mean,3),'Mean resid. x'],[f(r.x.std,3),'SD resid. x'],[f(r.y.mean,3),'Mean resid. y'],[f(r.y.std,3),'SD resid. y'],
+      [f(Math.max(Math.abs(r.x.min), Math.abs(r.x.max)),2),'Max |resid.| x'],[`${r.outliers_x} / ${r.outliers_y}`,'Outliers replaced x / y']]),
+    note:'Residual = filtered − original series. Large spikes mark replaced outliers or filter artefacts (e.g. a high-pass filter removes the mean).'});
+};
+function renderAll() {
+  if (!A) return;
+  banner('warnBanner', A.warnings);
+  for (const id of CARD_IDS) {
+    try { R[id](A); } catch (e) { console.error('card', id, e); setCard(id, { note:`⚠ Could not draw this card: ${e.message}` }); }
+  }
+}
+
+// ===================== PARAMETERS / SERVER CALLS =====================
+function params() {
+  const q = new URLSearchParams({
+    series:$('seriesSelect').value, filter:$('filterType').value, window:$('windowSize').value, poly:$('polyOrder').value,
+    cutoff:$('cutoff').value, cutoff_high:$('cutoffHigh').value, outlier:$('outlierMethod').value, thresh:$('outlierThresh').value,
+    downsample:$('downsample').checked ? 1 : 0, show_velocity:$('showVelocity').checked ? 1 : 0,
+    slide_win:$('slideWin').value, slide_step:$('slideStep').value });
+  return q.toString();
+}
+async function applyFilters() {
+  if (!DS) return;
+  updateRelevance();
+  if (inflight) inflight.abort();
+  const ac = new AbortController(); inflight = ac;
+  showLoading(true, 'Computing…');
+  try {
+    const r = await fetch(`/api/dashboard/${DS.id}/analysis?` + params(), { signal: ac.signal });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+    A = j; banner('errBanner', []); renderAll();
+  } catch (e) {
+    if (e.name === 'AbortError') return;
+    banner('errBanner', e.message);
+  } finally { if (inflight === ac) { inflight = null; showLoading(false); } }
+}
+function updateRelevance() {
+  const ft = $('filterType').value, om = $('outlierMethod').value;
+  document.querySelectorAll('[data-for]').forEach(el => el.classList.toggle('dim', !el.dataset.for.split(' ').includes(ft)));
+  document.querySelectorAll('[data-for-out]').forEach(el => el.classList.toggle('dim', !el.dataset.forOut.split(' ').includes(om)));
+  $('cutoffLabel').textContent = ft === 'butter_bp' ? 'Band low (Hz)' : (ft === 'butter_hp' ? 'High-pass cutoff (Hz)' : 'Cutoff freq (Hz)');
+}
+function updateRangeLabels() {
+  $('windowSizeVal').textContent = $('windowSize').value; $('polyOrderVal').textContent = $('polyOrder').value;
+  $('cutoffVal').textContent = (+$('cutoff').value).toFixed(1); $('cutoffHighVal').textContent = (+$('cutoffHigh').value).toFixed(1);
+  $('outlierThreshVal').textContent = (+$('outlierThresh').value).toFixed(1);
+  $('slideWinVal').textContent = $('slideWin').value; $('slideStepVal').textContent = (+$('slideStep').value).toFixed(2).replace(/\.?0+$/, '');
+}
+function resetFilters() {
+  $('filterType').value = 'sg'; $('windowSize').value = 11; $('polyOrder').value = 3; $('cutoff').value = 2.0; $('cutoffHigh').value = 3.0;
+  $('outlierMethod').value = 'none'; $('outlierThresh').value = 3.0; $('slideWin').value = 10; $('slideStep').value = 0.5;
+  $('overlayRaw').checked = true; $('downsample').checked = true; $('showVelocity').checked = false;
+  if (DS) $('seriesSelect').value = DS.meta.defaults.series in DS.meta.series.reduce((o, s) => (o[s.key] = 1, o), {}) ? DS.meta.defaults.series : DS.meta.series[0].key;
+  updateRangeLabels(); applyFilters();
+}
+
+// ===================== DOWNLOADS =====================
+function downloadPlot(id) {
+  const el = $('p-' + id);
+  if (!el || !el.data) { alert('Nothing to export for this card yet.'); return; }
+  Plotly.downloadImage(el, { format:'png', width:1400, height:800, filename:'pendulum_' + id });
+}
+async function downloadData(path, filename, label) {
+  if (!DS) return;
+  showLoading(true, label);
+  try {
+    const r = await fetch(`/api/dashboard/${DS.id}/${path}?` + params());
+    if (!r.ok) { let m = 'HTTP ' + r.status; try { m = (await r.json()).error || m; } catch (_) {} throw new Error(m); }
+    const url = URL.createObjectURL(await r.blob());
+    const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  } catch (e) { banner('errBanner', 'Download failed: ' + e.message); }
+  finally { showLoading(false); }
+}
+
+// ===================== DATASETS =====================
+async function loadDatasets(selectId) {
+  const j = await (await fetch('/api/dashboard/datasets')).json();
+  const sel = $('datasetSelect');
+  sel.innerHTML = j.datasets.map(d => `<option value="${d.id}">${d.name.replace(/</g,'&lt;')} · ${d.source} · ${d.duration.toFixed(0)} s</option>`).join('');
+  const has = id => id && j.datasets.some(d => d.id === id);
+  const pick = has(selectId) ? selectId : (has(INITIAL_ID) ? INITIAL_ID : (j.datasets.length ? j.datasets[j.datasets.length - 1].id : null));
+  $('emptyState').style.display = pick ? 'none' : 'block';
+  $('toggleBar').style.display = $('cardGrid').style.display = pick ? '' : 'none';
+  if (!pick) { DS = null; ['btnCsv','btnImg','btnPpt'].forEach(i => $(i).disabled = true); return; }
+  ['btnCsv','btnImg','btnPpt'].forEach(i => $(i).disabled = false);
+  sel.value = pick; await selectDataset(pick);
+}
+async function selectDataset(id) {
+  const r = await fetch(`/api/dashboard/${id}/meta`);
+  const m = await r.json();
+  if (!r.ok) { banner('errBanner', m.error || 'Could not open dataset'); return; }
+  DS = { id, meta: m };
+  $('seriesSelect').innerHTML = m.series.map(s => `<option value="${s.key}">${s.label}</option>`).join('');
+  $('seriesSelect').value = m.series.some(s => s.key === m.defaults.series) ? m.defaults.series : m.series[0].key;
+  $('cutoff').max = $('cutoffHigh').max = Math.max(1, Math.floor(m.nyquist * 10) / 10);
+  $('datasetMeta').textContent = `${m.n.toLocaleString()} samples · ${m.duration.toFixed(1)} s · ${m.fs.toFixed(2)} Hz · unit ${m.unit}`;
+  history.replaceState(null, '', '/dashboard/' + id);
+  updateRangeLabels(); await applyFilters();
+}
+async function uploadDataset(file) {
+  showLoading(true, 'Reading file…');
+  try {
+    const fd = new FormData(); fd.append('file', file);
+    const r = await fetch('/api/dashboard/upload', { method:'POST', body:fd });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || 'Upload failed');
+    banner('errBanner', []); await loadDatasets(j.id);
+  } catch (e) { banner('errBanner', e.message); }
+  finally { showLoading(false); $('datasetFile').value = ''; }
+}
+
+// ===================== INIT =====================
+async function init() {
+  const grid = $('cardGrid'); CARD_IDS.forEach(id => grid.appendChild(makeCard(id)));
+  buildToggleBar();
+  const hidden = loadHidden(); CARD_IDS.forEach(id => { if (hidden.has(id)) setCardVisible(id, false); });
+  ['filterType','seriesSelect','outlierMethod','overlayRaw','downsample','showVelocity'].forEach(id => $(id).addEventListener('change', () => { updateRelevance(); debounce(applyFilters); }));
+  ['windowSize','polyOrder','cutoff','cutoffHigh','outlierThresh','slideWin','slideStep'].forEach(id =>
+    $(id).addEventListener('input', () => { updateRangeLabels(); debounce(applyFilters, 400); }));
+  $('datasetSelect').addEventListener('change', e => selectDataset(e.target.value));
+  $('datasetFile').addEventListener('change', e => { if (e.target.files[0]) uploadDataset(e.target.files[0]); });
+  window.addEventListener('resize', () => debounce(() => CARD_IDS.forEach(id => { const el = $('p-' + id); if (el && el.data && !$('card-' + id).classList.contains('hidden')) Plotly.Plots.resize(el); }), 200));
+  updateRangeLabels(); updateRelevance();
+  try { await loadDatasets(); } catch (e) { banner('errBanner', 'Could not reach the server: ' + e.message); }
+}
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,1382 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pendulum Lab</title>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b1418;
+      --pn: #132229;
+      --pn2: #182b33;
+      --ln: #25404a;
+      --fg: #e6eef0;
+      --mu: #8ba3ab;
+      --br: #d8a03d;
+      --cy: #4fd1e8;
+      --co: #ff8a65;
+      --gr: #7bd88f;
+      --f: "Manrope", ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    html,
+    body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--fg);
+      font: 13px/1.35 var(--f)
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+      color: var(--fg)
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--br);
+      outline-offset: 2px
+    }
+
+    header {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 8px 12px;
+      align-items: center;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--ln);
+      flex: none;
+      height: 48px
+    }
+
+    h1 {
+      font-size: 16px;
+      font-weight: 800;
+      margin: 0 auto 0 0;
+      letter-spacing: -.01em;
+      white-space: nowrap
+    }
+
+    h1 small {
+      display: none
+    }
+
+    .btn {
+      background: var(--pn2);
+      border: 1px solid var(--ln);
+      border-radius: 8px;
+      padding: 6px 12px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: border-color .15s;
+      font-size: 12px
+    }
+
+    .btn:hover {
+      border-color: var(--br)
+    }
+
+    .btn.pri {
+      background: var(--br);
+      border-color: var(--br);
+      color: #1a1205;
+      font-weight: 800
+    }
+
+    details.set {
+      position: relative
+    }
+
+    details.set summary {
+      list-style: none
+    }
+
+    details.set summary::-webkit-details-marker {
+      display: none
+    }
+
+    .setp {
+      position: absolute;
+      right: 0;
+      top: 40px;
+      z-index: 20;
+      background: var(--pn);
+      border: 1px solid var(--ln);
+      border-radius: 10px;
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+      width: 280px;
+      max-height: min(70vh, 520px);
+      overflow: auto
+    }
+
+    .setp label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      color: var(--mu);
+      font-size: 12px
+    }
+
+    .setp .sep {
+      border-top: 1px solid var(--ln);
+      margin: 4px 0;
+      padding-top: 8px;
+      font-size: 11px;
+      color: var(--br);
+      font-weight: 600
+    }
+
+    input[type=number],
+    input[type=text] {
+      width: 100px;
+      background: var(--bg);
+      border: 1px solid var(--ln);
+      border-radius: 6px;
+      padding: 4px 6px
+    }
+
+    .setp input[type=checkbox] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--br)
+    }
+
+    .color-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px
+    }
+
+    .color-grid label {
+      display: grid;
+      gap: 3px;
+      color: var(--mu);
+      font-size: 11px
+    }
+
+    .color-grid input {
+      width: 100%
+    }
+
+    .setp label.check {
+      justify-content: flex-start
+    }
+
+    dialog {
+      max-width: min(760px, 94vw);
+      max-height: 90vh;
+      padding: 16px;
+      background: var(--pn);
+      color: var(--fg);
+      border: 1px solid var(--ln);
+      border-radius: 12px
+    }
+
+    dialog::backdrop {
+      background: rgba(5, 10, 12, .82);
+      backdrop-filter: blur(5px)
+    }
+
+    dialog h2 {
+      font-size: 16px;
+      margin: 0 0 5px
+    }
+
+    dialog p {
+      color: var(--mu);
+      margin: 0 0 10px
+    }
+
+    #calibCanvas {
+      display: block;
+      max-width: min(82vw, 680px);
+      max-height: 62vh;
+      width: auto;
+      height: auto;
+      background: #000;
+      border-radius: 8px;
+      cursor: crosshair
+    }
+
+    .calib-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      margin-top: 10px
+    }
+
+    .bob-preview-wrap { position: relative; max-width: 100%; margin: 10px 0; }
+    .bob-preview-wrap img, .bob-preview-wrap canvas { max-width: 100%; display: block; border-radius: 6px; }
+    .bob-preview-wrap canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; cursor: crosshair; }
+    .bob-preview-wrap.reselect canvas { pointer-events: auto; }
+    .bob-preview-wrap:not(.reselect) canvas { pointer-events: none; }
+    .calib-status {
+      min-height: 18px;
+      color: var(--cy);
+      font-size: 12px;
+      margin-top: 6px
+    }
+
+    main {
+      padding: 8px 12px;
+      display: grid;
+      gap: 8px;
+      height: calc(100vh - 48px);
+      grid-template-rows: 1fr auto;
+      max-width: none;
+      margin: 0;
+      overflow: hidden
+    }
+
+    .stage {
+      display: grid;
+      grid-template-columns: 1fr 1.35fr;
+      gap: 8px;
+      min-height: 0;
+      align-items: stretch
+    }
+
+    .col {
+      display: grid;
+      grid-template-rows: 1fr minmax(140px, 28%);
+      gap: 8px;
+      min-height: 0
+    }
+
+    .card {
+      background: var(--pn);
+      border: 1px solid var(--ln);
+      border-radius: 10px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden
+    }
+
+    .card h2 {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--mu);
+      margin: 0 0 6px;
+      flex: none
+    }
+
+    .vid-card {
+      min-height: 0
+    }
+
+    #wrap {
+      position: relative;
+      margin: 0 auto;
+      background: #000;
+      border-radius: 6px;
+      overflow: hidden;
+      width: 100%;
+      flex: 1;
+      min-height: 0;
+      aspect-ratio: unset;
+      max-height: none
+    }
+
+    #wrap video,
+    #wrap canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain
+    }
+
+    #wrap canvas {
+      pointer-events: none
+    }
+
+    #wrap video {
+      cursor: pointer
+    }
+
+    .empty {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      color: var(--mu);
+      text-align: center;
+      padding: 12px;
+      font-size: 12px
+    }
+
+    .ctl {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+      flex: none
+    }
+
+    .pl {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 0;
+      background: var(--br);
+      color: #1a1205;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      flex: none
+    }
+
+    .pl:disabled {
+      opacity: .35;
+      cursor: not-allowed
+    }
+
+    .ctl select {
+      background: var(--bg);
+      border: 1px solid var(--ln);
+      border-radius: 6px;
+      padding: 2px 4px;
+      font-size: 12px
+    }
+
+    .tm {
+      font-variant-numeric: tabular-nums;
+      color: var(--mu);
+      font-size: 11px;
+      min-width: 70px;
+      text-align: right
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: none;
+      flex: 1;
+      height: 18px;
+      margin: 0;
+      cursor: pointer
+    }
+
+    input[type=range]::-webkit-slider-runnable-track {
+      height: 5px;
+      border-radius: 3px;
+      background: linear-gradient(90deg, var(--ln) var(--a, 0%), #8a6a2a var(--a, 0%) var(--b, 100%), var(--ln) var(--b, 100%))
+    }
+
+    input[type=range]::-moz-range-track {
+      height: 5px;
+      border-radius: 3px;
+      background: linear-gradient(90deg, var(--ln) var(--a, 0%), #8a6a2a var(--a, 0%) var(--b, 100%), var(--ln) var(--b, 100%))
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--fg);
+      margin-top: -3.5px
+    }
+
+    input[type=range]::-moz-range-thumb {
+      width: 12px;
+      height: 12px;
+      border: 0;
+      border-radius: 50%;
+      background: var(--fg)
+    }
+
+    .sw {
+      position: relative;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--ln);
+      background: #0b1418;
+      display: flex;
+      flex-direction: column;
+      min-height: 0
+    }
+
+    #d3 {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      touch-action: none;
+      cursor: grab;
+      aspect-ratio: unset
+    }
+
+    #d3:active {
+      cursor: grabbing
+    }
+
+    #d3 canvas {
+      position: absolute;
+      inset: 0;
+      display: block;
+      width: 100% !important;
+      height: 100% !important
+    }
+
+    .lb {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 0;
+      background: #000;
+      transition: height .8s ease;
+      z-index: 2;
+      pointer-events: none
+    }
+
+    .lb.t {
+      top: 0
+    }
+
+    .lb.b {
+      bottom: 0
+    }
+
+    .cin .lb {
+      height: 6%
+    }
+
+    #cap {
+      position: absolute;
+      left: 12px;
+      bottom: calc(6% + 8px);
+      z-index: 3;
+      font-weight: 800;
+      font-size: 13px;
+      text-shadow: 0 1px 8px #000;
+      opacity: 0;
+      transition: opacity .6s;
+      pointer-events: none
+    }
+
+    #cap.on {
+      opacity: 1
+    }
+
+    .cams {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      right: 6px;
+      z-index: 4;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px
+    }
+
+    .cams button {
+      background: rgba(11, 20, 24, .72);
+      backdrop-filter: blur(6px);
+      border: 1px solid var(--ln);
+      border-radius: 14px;
+      padding: 2px 8px;
+      cursor: pointer;
+      font-size: 10px
+    }
+
+    .cams button[aria-pressed=true] {
+      background: var(--br);
+      border-color: var(--br);
+      color: #1a1205;
+      font-weight: 800
+    }
+
+    .ov {
+      position: absolute;
+      inset: 0;
+      z-index: 6;
+      display: grid;
+      place-items: center;
+      background: rgba(8, 14, 17, .74);
+      backdrop-filter: blur(6px);
+      padding: 12px
+    }
+
+    .ov[hidden] {
+      display: none
+    }
+
+    .pc {
+      width: min(420px, 100%);
+      background: var(--pn);
+      border: 1px solid var(--ln);
+      border-radius: 12px;
+      padding: 18px
+    }
+
+    .pc h3 {
+      margin: 0 0 4px;
+      font-size: 18px;
+      font-weight: 800
+    }
+
+    .pc p {
+      margin: 0 0 12px;
+      color: var(--mu);
+      font-size: 13px
+    }
+
+    #drop.hot .pc {
+      border-color: var(--br)
+    }
+
+    .row {
+      margin: 10px 0
+    }
+
+    .row .h {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-weight: 600
+    }
+
+    .row .h b {
+      font-size: 18px;
+      font-variant-numeric: tabular-nums
+    }
+
+    .bar {
+      height: 6px;
+      background: var(--bg);
+      border-radius: 3px;
+      overflow: hidden;
+      margin: 4px 0
+    }
+
+    .bar i {
+      display: block;
+      height: 100%;
+      width: 0;
+      background: var(--br);
+      border-radius: 3px;
+      transition: width .25s
+    }
+
+    .row.an .bar i {
+      background: var(--cy)
+    }
+
+    .row.off {
+      opacity: .4
+    }
+
+    .row small {
+      color: var(--mu);
+      font-variant-numeric: tabular-nums;
+      font-size: 11px
+    }
+
+    .err {
+      color: var(--co);
+      margin: 8px 0
+    }
+
+    .bottom {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 8px;
+      min-height: 0;
+      max-height: 160px
+    }
+
+    .v {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 4px;
+      overflow: auto
+    }
+
+    .v div {
+      background: var(--pn2);
+      border-radius: 6px;
+      padding: 4px 6px
+    }
+
+    .v b {
+      display: block;
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.2
+    }
+
+    .v span {
+      font-size: 9px;
+      color: var(--mu)
+    }
+
+    canvas.pl2 {
+      width: 100%;
+      height: 100%;
+      display: block;
+      background: var(--pn2);
+      border-radius: 6px;
+      flex: 1;
+      min-height: 0
+    }
+
+    .plot-card {
+      min-height: 0
+    }
+
+    #res {
+      overflow: auto;
+      font-size: 12px
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%
+    }
+
+    td,
+    th {
+      border-bottom: 1px solid var(--ln);
+      padding: 3px 6px;
+      text-align: left;
+      font-variant-numeric: tabular-nums
+    }
+
+    th {
+      color: var(--mu);
+      font-weight: 600
+    }
+
+    @media(max-width:1100px) {
+      .stage {
+        grid-template-columns: 1fr 1fr
+      }
+
+      .v {
+        grid-template-columns: repeat(4, 1fr)
+      }
+    }
+
+    @media(max-width:700px) {
+
+      html,
+      body {
+        overflow: auto
+      }
+
+      header {
+        height: auto;
+        min-height: 48px;
+        flex-wrap: wrap;
+        padding: 8px;
+        gap: 6px
+      }
+
+      h1 {
+        flex: 1 0 100%
+      }
+
+      main {
+        height: auto;
+        min-height: calc(100vh - 96px);
+        overflow: visible
+      }
+
+      .stage {
+        grid-template-columns: 1fr
+      }
+
+      .bottom {
+        grid-template-columns: 1fr;
+        max-height: none
+      }
+
+      .setp {
+        position: fixed !important;
+        top: 52px !important;
+        right: 8px !important;
+        max-height: calc(100vh - 64px) !important
+      }
+    }
+
+    @media(prefers-reduced-motion:reduce) {
+      * {
+        transition: none !important
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>Pendulum Lab<small>Y-shaped pendulum video tracker</small></h1>
+    <details class="set">
+      <summary class="btn">Analysis settings</summary>
+      <div class="setp">
+        <div class="sep">Bob colour · HSV (optional override)</div>
+        <div class="color-grid">
+          <label>Hue min (0–179)<input id="hmin" type="number" min="0" max="179" value="100"></label>
+          <label>Hue max (0–179)<input id="hmax" type="number" min="1" max="179" value="130"></label>
+          <label>Saturation min<input id="smin" type="number" min="0" max="255" value="120"></label>
+          <label>Value min<input id="vmin" type="number" min="0" max="255" value="50"></label>
+        </div>
+        <label class="check"><span>Camera is moving (stabilise)</span><input id="cameraStabilize" type="checkbox"
+            checked></label>
+        <label class="check"><span>Normalise for zoom using bob size</span><input id="zoomNormalize" type="checkbox"
+            checked></label>
+        <label>If mirror image, keep <select id="pf2">
+            <option value="auto">auto (best)</option>
+            <option value="top">upper object</option>
+            <option value="bottom">lower object</option>
+            <option value="left">left object</option>
+            <option value="right">right object</option>
+          </select></label>
+        <label>Scale (cm/px) <input id="sc" type="number" step="any" placeholder="optional"></label>
+        <label>Start (s) <input id="s0" type="number" step="any" placeholder="auto"></label>
+        <label>End (s) <input id="s1" type="number" step="any" placeholder="auto"></label>
+        <div class="sep">Experiment parameters</div>
+        <label>Mass / weight <input id="mass" type="number" step="any" placeholder="e.g. 50"></label>
+        <label>Length L <input id="len" type="number" step="any" placeholder="m or cm"></label>
+        <label>g (m/s²) <input id="g" type="number" step="any" value="9.81"></label>
+        <label>Trial ID <input id="trial" type="text" placeholder="run-01"></label>
+        <label>Notes <input id="notes" type="text" placeholder="optional"></label>
+      </div>
+    </details>
+    <label class="btn pri" for="f">Upload video</label><input id="f" type="file" accept="video/*" hidden>
+    <button class="btn" id="clickCalibrate" type="button"
+      title="Fallback: choose a video, then click the bob in its first frame">Click to calibrate</button>
+    <input id="calibFile" type="file" accept="video/*" hidden>
+    <a class="btn" id="csv" href="#" title="Download full CSV (params + summary + time series)"><svg width="14"
+        height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+        stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="12" y1="18" x2="12" y2="12" />
+        <polyline points="9 15 12 18 15 15" />
+      </svg> CSV</a>
+    <a class="btn" id="dbg" target="_blank"
+      title="Shows the selected bob in green, rejected blobs with reasons, and the trajectory">Tracking check</a>
+    <a class="btn" id="dbgSamples" target="_blank" title="Sampled tracking frames across the video">Tracking samples</a>
+    <a class="btn" id="json" href="#" title="Download full JSON"><svg width="14" height="14" viewBox="0 0 24 24"
+        fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <path d="M10 12h4M10 16h4" />
+      </svg> JSON</a>
+    <button class="btn" id="rec" disabled title="Download result video of the full screen from start to finish"><svg
+        width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+        <polyline points="7 10 12 15 17 10" />
+        <line x1="12" y1="15" x2="12" y2="3" />
+      </svg> Result video</button>
+    <a class="btn" id="dashLink" href="/dashboard" title="Open the analysis dashboard (filters, spectra, damping, PPT export)">Dashboard</a>
+  </header>
+  <main>
+    <section class="stage">
+      <div class="col">
+        <div class="card vid-card">
+          <h2>Video tracking</h2>
+          <div id="wrap"><video id="v" muted playsinline loop preload="auto"></video><canvas id="ov"></canvas>
+            <div class="empty" id="ve">Your video appears here once it is analysed</div>
+          </div>
+          <div class="ctl"><button class="pl" id="pb" disabled aria-label="Play"><svg id="pi" width="16" height="16"
+                viewBox="0 0 24 24" fill="currentColor">
+                <path d="M7 4l13 8-13 8z" />
+              </svg></button>
+            <input id="sk" type="range" min="0" max="1000" value="0" aria-label="Seek"><span class="tm" id="tm">0.0 /
+              0.0 s</span>
+            <select id="sp" aria-label="Speed">
+              <option value=".25">0.25×</option>
+              <option value=".5">0.5×</option>
+              <option value="1" selected>1×</option>
+              <option value="2">2×</option>
+            </select>
+          </div>
+        </div>
+        <div class="card plot-card">
+          <h2>Trajectory y vs x</h2><canvas class="pl2" id="c2" width="600" height="280"></canvas>
+        </div>
+      </div>
+      <div class="col">
+        <div class="sw" id="sw">
+          <div class="lb t"></div>
+          <div class="lb b"></div>
+          <div id="cap"></div>
+          <div class="cams" id="cams"><button data-m="match" aria-pressed="true" title="Camera fixed so the 3D bob moves exactly like the bob in the video">Match video</button><button data-m="auto" aria-pressed="false">Cinematic</button><button
+              data-m="follow">Follow bob</button><button data-m="front">Front</button><button
+              data-m="side">Side</button><button data-m="top">Top</button><button data-p="h" aria-pressed="true"
+              title="Camera filmed from below or above: image x and y are both horizontal">Swing:
+              horizontal</button><button data-p="v" aria-pressed="false"
+              title="Camera filmed from the front: image y is height">Swing: vertical</button></div>
+          <div id="d3"></div>
+          <div class="ov" id="drop">
+            <div class="pc">
+              <h3>Drop a pendulum video</h3>
+              <p>Upload a video of any bob (any colour, shape or size). Confirm the detected bob, then analysis, plots and the 3D replay run
+                together; camera stabilisation is on by default.</p><label class="btn pri" for="f">Choose a
+                video</label>
+            </div>
+          </div>
+          <div class="ov" id="prog" hidden>
+            <div class="pc">
+              <h3 id="pn">Working…</h3>
+              <p id="pf"></p>
+              <div class="row" id="r1">
+                <div class="h"><span>Uploading</span><b id="n1">0%</b></div>
+                <div class="bar"><i id="b1"></i></div><small id="t1">Starting…</small>
+              </div>
+              <div class="row an off" id="r2">
+                <div class="h"><span>Analysing</span><b id="n2">0%</b></div>
+                <div class="bar"><i id="b2"></i></div><small id="t2">Waiting for upload</small>
+              </div>
+              <div class="err" id="er" hidden></div><label class="btn" for="f" id="rt" hidden>Try another video</label>
+            </div>
+          </div>
+        </div>
+        <div class="card plot-card">
+          <h2>x(t), y(t), θ(t)</h2><canvas class="pl2" id="ct" width="600" height="280"></canvas>
+        </div>
+      </div>
+    </section>
+    <section class="bottom">
+      <div class="card">
+        <h2>Live values</h2>
+        <div class="v" id="vals"></div>
+      </div>
+      <div class="card">
+        <h2>Whole-clip results</h2>
+        <div id="res">Results appear after the analysis finishes.</div>
+      </div>
+    </section>
+  </main>
+  <dialog id="bobDialog" aria-labelledby="bobTitle">
+    <h2 id="bobTitle">Confirm the pendulum bob</h2>
+    <p id="bobHelp">The system has highlighted what it thinks is the bob. Confirm it, or select the correct object.</p>
+    <div class="bob-preview-wrap">
+      <img id="bobPreview" alt="First video frame with detected bob" />
+      <canvas id="bobCanvas" aria-label="Click or drag to select the bob"></canvas>
+    </div>
+    <div class="calib-status" id="bobStatus">Detecting candidates…</div>
+    <div class="calib-actions">
+      <button class="btn" id="bobCancel" type="button">Cancel</button>
+      <button class="btn" id="bobReselect" type="button">No, select the correct bob</button>
+      <button class="btn pri" id="bobConfirm" type="button" disabled>Yes, this is the bob</button>
+    </div>
+  </dialog>
+  <dialog id="calibDialog" aria-labelledby="calibTitle">
+    <h2 id="calibTitle">Click the bob in the first frame</h2>
+    <p>Fallback calibration: click any coloured part of the bob to sample its appearance. Works for any colour.</p>
+    <canvas id="calibCanvas" aria-label="First video frame. Click the bob to sample its colour."></canvas>
+    <div class="calib-status" id="calibStatus">Choose a video frame, then click the bob.</div>
+    <div class="calib-actions">
+      <button class="btn" id="calibCancel" type="button">Cancel</button>
+      <button class="btn" id="calibAuto" type="button">Use automatic calibration</button>
+      <button class="btn pri" id="calibStart" type="button" disabled>Analyse with clicked colour</button>
+    </div>
+  </dialog>
+  <script src="{{ url_for('static', filename='three.min.js') }}"></script>
+  <script>
+    const $ = i => document.getElementById(i), V = $('v'), O = $('ov'), oc = O.getContext('2d'); let D = null;
+    const KEYS = [['t', 't (s)'], ['x', 'x'], ['y', 'y'], ['r', 'r'], ['phi', 'φ (°)'], ['spd', 'speed /s'], ['z', 'z est.'], ['A', 'A(t)'], ['Tx', 'Tx (s)'], ['Ty', 'Ty (s)'], ['fx', 'fx (Hz)'], ['fy', 'fy (Hz)'], ['df', 'Δf = fx−fy'], ['fr', 'fx/fy'], ['dphi', 'Δφ (°)'], ['th', 'θ axis (°)'], ['thr', 'θ rate (°/s)'], ['ecc', 'minor/major'], ['Ax', 'Ax'], ['Ay', 'Ay'], ['gamma', 'γ (1/s)'], ['shape', 'shape']];
+    $('vals').innerHTML = KEYS.map(k => `<div><b id="v_${k[0]}">–</b><span>${k[1]}</span></div>`).join('');
+    const set = (k, v, d = 2) => { $('v_' + k).textContent = (v == null || !isFinite(v)) ? '–' : v.toFixed(d) }, mb = v => (v / 1048576).toFixed(1);
+    /* ---------- upload with real progress ---------- */
+    function bar(n, p, t) { $('b' + n).style.width = p + '%'; $('n' + n).textContent = Math.round(p) + '%'; if (t != null) $('t' + n).textContent = t }
+    function fail(m) { $('er').hidden = false; $('er').textContent = m; $('rt').hidden = false; $('pn').textContent = 'Something went wrong' }
+    /* ---------- primary bob confirmation dialog ---------- */
+    let pendingFile = null, selectedBobBbox = null, bobMode = 'confirm'; // confirm | reselect
+    let bobCandidates = [], bobBestIndex = -1, bobFrameW = 0, bobFrameH = 0;
+    let bobDrag = null; // {x0,y0,x1,y1} in canvas display coords
+
+    function clearBobDialog() {
+      pendingFile = null; selectedBobBbox = null; bobMode = 'confirm';
+      bobCandidates = []; bobBestIndex = -1; bobDrag = null;
+      $('bobConfirm').disabled = true;
+      $('bobPreview').removeAttribute('src');
+      const c = $('bobCanvas'); const ctx = c.getContext('2d');
+      ctx.clearRect(0, 0, c.width, c.height);
+      $('bobPreview').parentElement.classList.remove('reselect');
+    }
+
+    function canvasToFrame(cx, cy) {
+      const c = $('bobCanvas'), img = $('bobPreview');
+      const scaleX = bobFrameW / c.width, scaleY = bobFrameH / c.height;
+      return { x: cx * scaleX, y: cy * scaleY };
+    }
+
+    function drawBobOverlay() {
+      const c = $('bobCanvas'), ctx = c.getContext('2d');
+      ctx.clearRect(0, 0, c.width, c.height);
+      const sx = c.width / bobFrameW, sy = c.height / bobFrameH;
+      if (selectedBobBbox) {
+        const b = selectedBobBbox;
+        ctx.strokeStyle = '#28e060'; ctx.lineWidth = 3;
+        ctx.strokeRect(b.x * sx, b.y * sy, b.w * sx, b.h * sy);
+        ctx.fillStyle = 'rgba(40,224,96,0.12)';
+        ctx.fillRect(b.x * sx, b.y * sy, b.w * sx, b.h * sy);
+        ctx.fillStyle = '#28e060'; ctx.font = 'bold 14px system-ui,sans-serif';
+        ctx.fillText('Detected bob', b.x * sx, Math.max(16, b.y * sy - 6));
+      }
+      if (bobDrag) {
+        const x = Math.min(bobDrag.x0, bobDrag.x1), y = Math.min(bobDrag.y0, bobDrag.y1);
+        const w = Math.abs(bobDrag.x1 - bobDrag.x0), h = Math.abs(bobDrag.y1 - bobDrag.y0);
+        ctx.strokeStyle = '#ffcc33'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+        ctx.strokeRect(x, y, w, h); ctx.setLineDash([]);
+      }
+    }
+
+    function setBobFromCandidate(idx) {
+      if (idx < 0 || idx >= bobCandidates.length) return;
+      const c = bobCandidates[idx];
+      selectedBobBbox = { x: c.x, y: c.y, w: c.w, h: c.h };
+      $('bobConfirm').disabled = false;
+      $('bobStatus').textContent = `Candidate from ${c.source} · score ${c.score}. Confirm or select another.`;
+      drawBobOverlay();
+    }
+
+    async function openBobDialog(file) {
+      clearBobDialog();
+      pendingFile = file;
+      $('bobStatus').textContent = 'Detecting candidate objects…';
+      $('bobHelp').textContent = 'The system has highlighted what it thinks is the bob. Confirm it, or select the correct object.';
+      $('bobDialog').showModal();
+      const fd = new FormData();
+      fd.append('video', file);
+      try {
+        const resp = await fetch('/detect_bob', { method: 'POST', body: fd });
+        const data = await resp.json();
+        if (data.error) throw new Error(data.error);
+        bobFrameW = data.width; bobFrameH = data.height;
+        bobCandidates = data.candidates || [];
+        bobBestIndex = data.best_index >= 0 ? data.best_index : -1;
+        const img = $('bobPreview');
+        img.onload = () => {
+          const c = $('bobCanvas');
+          c.width = img.naturalWidth; c.height = img.naturalHeight;
+          // CSS already sizes via max-width; match canvas internal size to image
+          if (bobBestIndex >= 0) setBobFromCandidate(bobBestIndex);
+          else {
+            $('bobStatus').textContent = 'No clear candidate found. Click and drag on the image to select the bob.';
+            enterReselectMode();
+          }
+        };
+        img.src = 'data:image/jpeg;base64,' + data.preview_jpeg_base64;
+      } catch (err) {
+        $('bobStatus').textContent = 'Detection failed: ' + err.message + '. You can still select the bob manually.';
+        // Load first frame client-side as fallback
+        const url = URL.createObjectURL(file);
+        const v = document.createElement('video');
+        v.muted = true; v.playsInline = true; v.preload = 'auto';
+        try {
+          await new Promise((res, rej) => {
+            v.addEventListener('loadeddata', res, { once: true });
+            v.addEventListener('error', () => rej(new Error('decode failed')), { once: true });
+            v.src = url; v.load();
+          });
+          const cnv = document.createElement('canvas');
+          cnv.width = v.videoWidth; cnv.height = v.videoHeight;
+          cnv.getContext('2d').drawImage(v, 0, 0);
+          bobFrameW = v.videoWidth; bobFrameH = v.videoHeight;
+          $('bobPreview').onload = () => {
+            const c = $('bobCanvas');
+            c.width = bobFrameW; c.height = bobFrameH;
+            enterReselectMode();
+          };
+          $('bobPreview').src = cnv.toDataURL('image/jpeg', 0.88);
+        } catch (_) {
+          $('bobStatus').textContent = 'Could not load video frame. Try Click to calibrate instead.';
+        }
+        URL.revokeObjectURL(url);
+      }
+    }
+
+    function enterReselectMode() {
+      bobMode = 'reselect';
+      selectedBobBbox = null;
+      $('bobConfirm').disabled = true;
+      $('bobPreview').parentElement.classList.add('reselect');
+      $('bobHelp').textContent = 'Click and drag a box around the bob, or click its centre. Then press Confirm.';
+      $('bobStatus').textContent = 'Draw a box around the correct bob.';
+      drawBobOverlay();
+    }
+
+    $('f').onchange = e => {
+      const f = e.target.files[0]; e.target.value = '';
+      if (f) openBobDialog(f);
+    };
+    $('bobCancel').onclick = () => { $('bobDialog').close(); clearBobDialog(); };
+    $('bobReselect').onclick = () => enterReselectMode();
+    $('bobConfirm').onclick = () => {
+      if (!pendingFile || !selectedBobBbox) return;
+      const file = pendingFile, bbox = selectedBobBbox;
+      $('bobDialog').close(); clearBobDialog();
+      startUpload(file, null, bbox);
+    };
+
+    // Canvas interaction for manual selection
+    (function () {
+      const c = $('bobCanvas');
+      function pos(ev) {
+        const r = c.getBoundingClientRect();
+        return {
+          x: (ev.clientX - r.left) * (c.width / r.width),
+          y: (ev.clientY - r.top) * (c.height / r.height)
+        };
+      }
+      c.addEventListener('mousedown', ev => {
+        if (bobMode !== 'reselect') return;
+        const p = pos(ev);
+        bobDrag = { x0: p.x, y0: p.y, x1: p.x, y1: p.y };
+        drawBobOverlay();
+      });
+      c.addEventListener('mousemove', ev => {
+        if (!bobDrag) return;
+        const p = pos(ev);
+        bobDrag.x1 = p.x; bobDrag.y1 = p.y;
+        drawBobOverlay();
+      });
+      function finishDrag() {
+        if (!bobDrag) return;
+        const x = Math.min(bobDrag.x0, bobDrag.x1), y = Math.min(bobDrag.y0, bobDrag.y1);
+        const w = Math.abs(bobDrag.x1 - bobDrag.x0), h = Math.abs(bobDrag.y1 - bobDrag.y0);
+        bobDrag = null;
+        if (w < 4 && h < 4) {
+          // treat as click: small box around point
+          const fr = canvasToFrame(x, y);
+          const side = Math.max(24, Math.min(bobFrameW, bobFrameH) * 0.06);
+          selectedBobBbox = {
+            x: Math.max(0, fr.x - side / 2), y: Math.max(0, fr.y - side / 2),
+            w: side, h: side
+          };
+        } else {
+          const p0 = canvasToFrame(x, y), p1 = canvasToFrame(x + w, y + h);
+          selectedBobBbox = {
+            x: Math.min(p0.x, p1.x), y: Math.min(p0.y, p1.y),
+            w: Math.abs(p1.x - p0.x), h: Math.abs(p1.y - p0.y)
+          };
+        }
+        $('bobConfirm').disabled = false;
+        $('bobStatus').textContent = `Selected region ${Math.round(selectedBobBbox.w)}×${Math.round(selectedBobBbox.h)} px. Press Confirm to analyse.`;
+        drawBobOverlay();
+      }
+      c.addEventListener('mouseup', finishDrag);
+      c.addEventListener('mouseleave', () => { if (bobDrag) finishDrag(); });
+    })();
+
+    let calibrationFile = null, calibrationClick = null, calibrationUrl = null, calibrationPixels = null;
+    const calibrationVideo = document.createElement('video'), calibrationCanvas = $('calibCanvas'), calibrationContext = calibrationCanvas.getContext('2d');
+    function clearCalibration() { if (calibrationUrl) URL.revokeObjectURL(calibrationUrl); calibrationUrl = null; calibrationFile = null; calibrationClick = null; calibrationPixels = null; $('calibStart').disabled = true }
+    $('clickCalibrate').onclick = () => $('calibFile').click();
+    $('calibFile').onchange = async e => {
+      const file = e.target.files[0]; e.target.value = ''; if (!file) return;
+      clearCalibration(); calibrationFile = file; $('calibStatus').textContent = 'Loading first frame…';
+      $('calibDialog').showModal(); calibrationUrl = URL.createObjectURL(file);
+      calibrationVideo.preload = 'auto'; calibrationVideo.muted = true; calibrationVideo.playsInline = true;
+      try {
+        await new Promise((resolve, reject) => {
+          calibrationVideo.addEventListener('loadeddata', resolve, { once: true });
+          calibrationVideo.addEventListener('error', () => reject(new Error('Could not decode this video in the browser.')), { once: true });
+          calibrationVideo.src = calibrationUrl; calibrationVideo.load();
+        });
+        const factor = Math.min(1, 1920 / calibrationVideo.videoWidth);
+        calibrationCanvas.width = Math.max(1, Math.round(calibrationVideo.videoWidth * factor));
+        calibrationCanvas.height = Math.max(1, Math.round(calibrationVideo.videoHeight * factor));
+        calibrationContext.drawImage(calibrationVideo, 0, 0, calibrationCanvas.width, calibrationCanvas.height);
+        calibrationPixels = calibrationContext.getImageData(0, 0, calibrationCanvas.width, calibrationCanvas.height);
+        $('calibStatus').textContent = 'Click the blue part of the ball. Automatic calibration remains available.';
+      } catch (err) { $('calibStatus').textContent = err.message + ' You can still use automatic calibration.' }
+    };
+    calibrationCanvas.onclick = e => {
+      if (!calibrationFile || !calibrationPixels) return;
+      const rect = calibrationCanvas.getBoundingClientRect();
+      const x = Math.max(0, Math.min(calibrationCanvas.width - 1, Math.round((e.clientX - rect.left) * calibrationCanvas.width / rect.width)));
+      const y = Math.max(0, Math.min(calibrationCanvas.height - 1, Math.round((e.clientY - rect.top) * calibrationCanvas.height / rect.height)));
+      calibrationClick = { x: x * calibrationVideo.videoWidth / calibrationCanvas.width, y: y * calibrationVideo.videoHeight / calibrationCanvas.height };
+      calibrationContext.putImageData(calibrationPixels, 0, 0);
+      calibrationContext.beginPath(); calibrationContext.arc(x, y, Math.max(9, calibrationCanvas.width * .012), 0, Math.PI * 2);
+      calibrationContext.strokeStyle = '#7bd88f'; calibrationContext.lineWidth = 4; calibrationContext.stroke();
+      $('calibStatus').textContent = `Selected frame point x=${Math.round(calibrationClick.x)}, y=${Math.round(calibrationClick.y)}.`;
+      $('calibStart').disabled = false;
+    };
+    $('calibCancel').onclick = () => { $('calibDialog').close(); clearCalibration() };
+    $('calibAuto').onclick = () => { const file = calibrationFile; $('calibDialog').close(); clearCalibration(); if (file) startUpload(file) };
+    $('calibStart').onclick = () => { const file = calibrationFile, point = calibrationClick; $('calibDialog').close(); clearCalibration(); if (file && point) startUpload(file, point) };
+    ['dragover', 'dragenter'].forEach(n => addEventListener(n, e => { e.preventDefault(); $('drop').classList.add('hot') }));
+    ['dragleave', 'drop'].forEach(n => addEventListener(n, e => { e.preventDefault(); $('drop').classList.remove('hot') }));
+    addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) startUpload(f) });
+    function startUpload(file, click = null, bbox = null) {
+      V.pause(); $('drop').hidden = true; $('prog').hidden = false; $('er').hidden = true; $('rt').hidden = true; $('pn').textContent = 'Processing your video'; $('pf').textContent = file.name + ' · ' + mb(file.size) + ' MB';
+      $('r2').classList.add('off'); bar(1, 0, 'Starting…'); bar(2, 0, 'Waiting for upload');
+      const fd = new FormData(); fd.append('video', file);[['hmin', 'h_min'], ['hmax', 'h_max'], ['smin', 's_min'], ['vmin', 'v_min'], ['pf2', 'prefer'], ['sc', 'scale'], ['s0', 'start'], ['s1', 'end'], ['mass', 'mass'], ['len', 'length'], ['g', 'g'], ['trial', 'trial'], ['notes', 'notes']].forEach(([a, b]) => fd.append(b, $(a).value));
+      fd.append('camera_stabilize', $('cameraStabilize').checked ? '1' : '0');
+      fd.append('zoom_normalize', $('zoomNormalize').checked ? '1' : '0');
+      if (click) { fd.append('ball_click_x', click.x); fd.append('ball_click_y', click.y) }
+      if (bbox) {
+        fd.append('bob_bbox_x', bbox.x); fd.append('bob_bbox_y', bbox.y);
+        fd.append('bob_bbox_w', bbox.w); fd.append('bob_bbox_h', bbox.h);
+        fd.append('shape_relax', '2.0');
+      }
+      const x = new XMLHttpRequest(), t0 = performance.now(); x.open('POST', '/upload');
+      x.upload.onprogress = e => { if (!e.lengthComputable) return; const s = e.loaded / ((performance.now() - t0) / 1000 || 1); bar(1, e.loaded / e.total * 100, `${mb(e.loaded)} of ${mb(e.total)} MB · ${mb(s)} MB/s · ${Math.ceil((e.total - e.loaded) / s)} s left`) };
+      x.upload.onload = () => { bar(1, 100, 'Upload complete'); $('r2').classList.remove('off'); bar(2, 0, 'Starting…') };
+      x.onerror = () => fail('Network error. Check that the Flask server is still running, then try again.');
+      x.onload = () => { let j; try { j = JSON.parse(x.responseText) } catch (_) { return fail('The server returned an error (' + x.status + '). File may be too large (limit 500 MB).') } if (j.error) return fail(j.error); poll(j.job) };
+      x.send(fd)
+    }
+    async function poll(id) {
+      try {
+        const s = await (await fetch('/status/' + id)).json(); if (s.state === 'error') return fail(s.error || 'Analysis failed'); bar(2, s.pct, s.stage);
+        if (s.state === 'done') { return ready(await (await fetch('/result/' + id)).json()) }
+      } catch (e) { return fail('Lost connection to the server: ' + e) } setTimeout(() => poll(id), 300)
+    }
+    function fmt(v, d = 4) { return (v == null || !isFinite(v)) ? '–' : (+v).toFixed(d) }
+    function ready(j) {
+      D = j; let m = 1e-9; for (let n = 0; n < j.n; n++)if (j.x[n] != null) m = Math.max(m, Math.hypot(j.x[n], j.y[n])); j.kh = 2.8 / m; $('prog').hidden = true; $('ve').hidden = true; V.src = '/video/' + j.id; $('csv').href = '/csv/' + j.id; $('json').href = '/json/' + j.id; $('dashLink').href = '/dashboard/' + j.id; $('dbg').href = '/debug/' + j.id; $('dbgSamples').href = '/debug-samples/' + j.id; $('pb').disabled = false; $('rec').disabled = false; const s = j.summary || {}, p = j.params || {};
+      const shape = s.shape || '–', detail = s.shape_detail || '';
+      $('res').innerHTML = `<table>
+ <tr><th colspan="3">Shape: <span style="color:var(--br)">${shape}</span></th></tr>
+ <tr><td colspan="3" style="color:var(--mu);font-size:11px">${detail}</td></tr>
+ <tr><th></th><th>Peak-to-peak</th><th>FFT</th></tr>
+ <tr><td>Tx / fx</td><td>${fmt(s.Tx, 3)} s / ${fmt(s.fx_peak, 4)} Hz</td><td>${fmt(s.fx_fft, 4)} Hz</td></tr>
+ <tr><td>Ty / fy</td><td>${fmt(s.Ty, 3)} s / ${fmt(s.fy_peak, 4)} Hz</td><td>${fmt(s.fy_fft, 4)} Hz</td></tr>
+ <tr><td>Δf = fx−fy</td><td>${fmt(s.df_peak, 4)} Hz</td><td>${fmt(s.df_fft, 4)} Hz</td></tr>
+ <tr><td>fx/fy ratio</td><td>${fmt(s.freq_ratio, 4)}</td><td>${fmt(s.freq_ratio_fft, 4)}</td></tr>
+ <tr><td>Δφ phase</td><td colspan="2">${fmt(s.phase_deg, 1)} °</td></tr>
+ <tr><td>Ax / Ay</td><td colspan="2">${fmt(s.Ax, 3)} / ${fmt(s.Ay, 3)} ${j.unit || ''}</td></tr>
+ <tr><td>A₀ · γ damping</td><td colspan="2">A₀=${fmt(s.A0, 3)} · γ=${fmt(s.gamma, 4)} /s (A≈A₀e^{−γt})</td></tr>
+ <tr><td>Amp. decay</td><td colspan="2">${s.amplitude_decay == null ? '–' : (100 * s.amplitude_decay).toFixed(0) + '%'}</td></tr>
+ <tr><td>Eccentricity</td><td colspan="2">${fmt(s.eccentricity, 3)} (minor/major · 1 = circle)</td></tr>
+ <tr><td>θ mean / drift</td><td colspan="2">${fmt(s.theta_mean, 1)} ° · ${fmt(s.theta_drift, 2)} °/s (trajectory rotation)</td></tr>
+ <tr><td>z(t)</td><td colspan="2">est. from bob size · true 3-D needs side-view video</td></tr>
+ <tr><td>T theory (2π√L/g)</td><td colspan="2">${fmt(s.T_theory, 3)} s · meas ${fmt(s.T_meas, 3)} s · err ${s.T_rel_error == null ? '–' : (100 * s.T_rel_error).toFixed(1) + '%'}</td></tr>
+ <tr><td>Trial / mass / L</td><td colspan="2">${p.trial || '–'} · m=${p.mass ?? '–'} · L=${p.length ?? '–'} · g=${p.g ?? 9.81}</td></tr>
+ <tr><td>Analysed</td><td colspan="2">${fmt(s.t_start, 1)}–${fmt(s.t_end, 1)} s · res ≈ ${fmt(s.resolution, 3)} Hz</td></tr>
+ <tr><td>Tracking coverage</td><td colspan="2">${s.tracking_coverage == null ? '–' : (100 * s.tracking_coverage).toFixed(0) + '% of frames detected (rest interpolated, drawn dashed red)'}</td></tr>
+ </table>`;
+      const sh = $('v_shape'); if (sh) sh.textContent = shape;
+      const ax = $('v_Ax'), ay = $('v_Ay'); if (ax) ax.textContent = fmt(s.Ax, 2); if (ay) ay.textContent = fmt(s.Ay, 2);
+      const gm = $('v_gamma'); if (gm) gm.textContent = fmt(s.gamma, 4);
+      const dp = $('v_dphi'); if (dp) dp.textContent = fmt(s.phase_deg, 1);
+      const fr = $('v_fr'); if (fr) fr.textContent = fmt(s.freq_ratio, 3);
+      sizePlots()
+    }
+    /* ---------- video player (custom controls; overlay canvas ignores clicks) ---------- */
+    let seeking = false; const PLAY = '<path d="M7 4l13 8-13 8z"/>', PAUSE = '<path d="M6 4h4v16H6zM14 4h4v16h-4z"/>';
+    function toggle() { if (!D) return; const s = D.summary || {}, te = s.t_end, ts = s.t_start || 0; if (V.paused) { if (V.ended || (te != null && V.currentTime >= te)) V.currentTime = ts; V.playbackRate = +$('sp').value; const p = V.play(); if (p) p.catch(() => { }) } else V.pause() }
+    $('pb').onclick = toggle; V.onclick = toggle;
+    ['play', 'pause', 'ended'].forEach(n => V.addEventListener(n, () => { $('pi').innerHTML = V.paused ? PLAY : PAUSE; $('pb').setAttribute('aria-label', V.paused ? 'Play' : 'Pause') }));
+    $('sp').onchange = () => V.playbackRate = +$('sp').value;
+    $('sk').onpointerdown = () => seeking = true; $('sk').onpointerup = () => seeking = false; $('sk').oninput = e => { if (V.duration) V.currentTime = e.target.value / 1000 * V.duration };
+    addEventListener('keydown', e => { if (e.target.matches('input,select')) return; if (e.code === 'Space') { e.preventDefault(); toggle() } if (e.code === 'ArrowRight') V.currentTime += .1; if (e.code === 'ArrowLeft') V.currentTime -= .1 });
+    V.onloadedmetadata = () => {
+      O.width = V.videoWidth; O.height = V.videoHeight;
+      if (D && D.summary) { const ts = D.summary.t_start || 0, te = D.summary.t_end || V.duration; $('sk').style.setProperty('--a', ts / V.duration * 100 + '%'); $('sk').style.setProperty('--b', te / V.duration * 100 + '%'); V.currentTime = ts }
+    };
+    function sizePlots() { [['c2', 600, 280], ['ct', 600, 280]].forEach(([id, bw, bh]) => { const c = $(id), p = c.parentElement, r = p.getBoundingClientRect(), w = Math.max(200, Math.floor(r.width - 4)), h = Math.max(100, Math.floor(r.height - 28)); c.width = w; c.height = h }) }
+    addEventListener('resize', () => { sizePlots(); if (typeof onResize3D === 'function') onResize3D() });
+    /* ---------- plots ---------- */
+    function rowAt(t) { let lo = 0, hi = D.rows.length - 1, r = null; while (lo <= hi) { const m = (lo + hi) >> 1; if (D.rows[m].t <= t) { r = D.rows[m]; lo = m + 1 } else hi = m - 1 } return r }
+    function draw2D(i, A) {
+      const c = $('c2'), g = c.getContext('2d'), w = c.width, h = c.height; g.clearRect(0, 0, w, h); const R = D.R * 1.1, k = Math.min(w, h) / 2 / R, cx = w / 2, cy = h / 2, i0 = Math.max(0, i - Math.round(10 * D.fps));
+      g.strokeStyle = '#3a5560'; g.beginPath(); g.moveTo(0, cy); g.lineTo(w, cy); g.moveTo(cx, 0); g.lineTo(cx, h); g.stroke();
+      for (let n = i0 + 1; n <= i; n++) { if (D.x[n] == null || D.x[n - 1] == null) continue; g.strokeStyle = `rgba(79,209,232,${.15 + .85 * (n - i0) / (i - i0 + 1)})`; g.lineWidth = 1.8; g.beginPath(); g.moveTo(cx + D.x[n - 1] * k, cy - D.y[n - 1] * k); g.lineTo(cx + D.x[n] * k, cy - D.y[n] * k); g.stroke() }
+      if (A.th != null) { const a = A.th * Math.PI / 180, L = R * k; g.strokeStyle = '#d8a03d'; g.lineWidth = 2; g.setLineDash([6, 4]); g.beginPath(); g.moveTo(cx - Math.cos(a) * L, cy + Math.sin(a) * L); g.lineTo(cx + Math.cos(a) * L, cy - Math.sin(a) * L); g.stroke(); g.setLineDash([]) }
+      if (D.x[i] != null) { g.fillStyle = '#d8a03d'; g.beginPath(); g.arc(cx + D.x[i] * k, cy - D.y[i] * k, 6, 0, 6.3); g.fill() }
+      g.fillStyle = '#8ba3ab'; g.font = '12px sans-serif'; g.fillText('Dashed line: major axis θ (' + D.unit + ')', 8, 16)
+    }
+    function strip(g, pts, t0, t1, y0, h, col, lab, mn, mx, w) {
+      g.strokeStyle = '#25404a'; g.strokeRect(0, y0, w, h); g.strokeStyle = col; g.lineWidth = 1.6; g.beginPath(); let s = false;
+      pts.forEach(p => { if (p[1] == null) { s = false; return } const X = (p[0] - t0) / (t1 - t0) * w, Y = y0 + h - 4 - (p[1] - mn) / (mx - mn || 1) * (h - 8); s ? g.lineTo(X, Y) : g.moveTo(X, Y); s = true }); g.stroke(); g.fillStyle = col; g.font = '12px sans-serif'; g.fillText(lab, 6, y0 + 14)
+    }
+    function drawTS(i, t) {
+      const c = $('ct'), g = c.getContext('2d'), w = c.width; g.clearRect(0, 0, w, c.height); const t0 = Math.max(0, t - 10), t1 = t0 + 10, i0 = Math.floor(t0 * D.fps), R = D.R, px = [], py = [];
+      for (let k = i0; k <= i; k++) { px.push([k / D.fps, D.x[k]]); py.push([k / D.fps, D.y[k]]) }
+      strip(g, px, t0, t1, 0, 105, '#4fd1e8', 'x (' + D.unit + ')', -R, R, w); strip(g, py, t0, t1, 110, 105, '#ff8a65', 'y (' + D.unit + ')', -R, R, w);
+      strip(g, D.rows.filter(r => r.t >= t0 && r.t <= t).map(r => [r.t, r.th]), t0, t1, 220, 105, '#7bd88f', 'θ (°)', -90, 90, w)
+    }
+    /* ---------- 3D scene: Y-pendulum lab + cinematic camera ---------- */
+    const UPTOP = new THREE.Vector3(0, 0, -1), S3 = $('d3'), FY = -3, PY = 4.6, NP = 240, V3 = (x, y, z) => new THREE.Vector3(x, y, z), sm = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x) };
+    const ren = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); ren.shadowMap.enabled = true; ren.shadowMap.type = THREE.PCFSoftShadowMap; ren.toneMapping = THREE.ACESFilmicToneMapping; ren.toneMappingExposure = .8; ren.outputEncoding = THREE.sRGBEncoding; S3.appendChild(ren.domElement);
+    const sc3 = new THREE.Scene(); sc3.background = new THREE.Color(0x0b1418); sc3.fog = new THREE.Fog(0x0b1418, 14, 32); const cam = new THREE.PerspectiveCamera(46, 1.6, .1, 80);
+    sc3.add(new THREE.HemisphereLight(0x9fd0dc, 0x16262d, .45));
+    const key = new THREE.SpotLight(0xffe2b0, 1.5, 50, .6, .6); key.position.set(5, 10, 7); key.castShadow = true; key.shadow.mapSize.set(1024, 1024); key.shadow.bias = -.0004; sc3.add(key, key.target);
+    const rim = new THREE.PointLight(0x4fd1e8, .9, 30); rim.position.set(-6, 3, -4); sc3.add(rim); const glow = new THREE.PointLight(0xffc46b, .7, 7); sc3.add(glow);
+    const steel = new THREE.MeshStandardMaterial({ color: 0xaab8be, metalness: .7, roughness: .4 }), add = (g, m, x, y, z, sh) => { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); o.castShadow = !!sh; o.receiveShadow = true; sc3.add(o); return o };
+    add(new THREE.CircleGeometry(10, 64), new THREE.MeshStandardMaterial({ color: 0x0d1a20, roughness: .95 }), 0, FY, 0).rotation.x = -Math.PI / 2;
+    const grid = new THREE.GridHelper(20, 40, 0x2d4d59, 0x1b333c); grid.position.y = FY + .01; sc3.add(grid);
+    add(new THREE.PlaneGeometry(12, 9), new THREE.MeshStandardMaterial({ color: 0x0f1f26, roughness: .95 }), 0, FY + 4.5, -2.5);
+    add(new THREE.BoxGeometry(2.4, .14, 1.6), steel, -3.4, FY + .07, 0, 1); add(new THREE.CylinderGeometry(.07, .07, PY - FY, 20), steel, -3.4, (PY + FY) / 2, 0, 1);
+    const arm = add(new THREE.CylinderGeometry(.05, .05, 4.9, 16), steel, -.95, PY, 0, 1); arm.rotation.z = Math.PI / 2; add(new THREE.BoxGeometry(.3, .3, .3), steel, -3.4, PY, 0, 1);
+    [-.7, .7].forEach(x => add(new THREE.BoxGeometry(.16, .16, .16), steel, x, PY, 0, 1));
+    const A1 = V3(-.7, PY, 0), B1 = V3(.7, PY, 0), M1 = V3(0, PY, 0), KN = V3(), BOB = V3(0, 0, 0), UP = V3(0, 1, 0), _d = V3(), wire = new THREE.MeshBasicMaterial({ color: 0xdfe8ea });
+    const strand = () => { const m = new THREE.Mesh(new THREE.CylinderGeometry(.013, .013, 1, 6), wire); m.castShadow = true; sc3.add(m); return m }, sA = strand(), sB = strand(), sC = strand();
+    function link(m, a, b) { _d.subVectors(b, a); const l = _d.length() || .001; m.position.copy(a).addScaledVector(_d, .5); m.scale.set(1, l, 1); m.quaternion.setFromUnitVectors(UP, _d.normalize()) }
+    const ball = add(new THREE.SphereGeometry(.22, 32, 24), new THREE.MeshStandardMaterial({ color: 0xd8a03d, metalness: .75, roughness: .3, emissive: 0x3a2606 }), 0, 0, 0, 1);
+    const tp = new Float32Array(NP * 3), tc = new Float32Array(NP * 3), wp = new Float32Array(NP * 3), tg = new THREE.BufferGeometry(), wg = new THREE.BufferGeometry();
+    tg.setAttribute('position', new THREE.BufferAttribute(tp, 3)); tg.setAttribute('color', new THREE.BufferAttribute(tc, 3)); wg.setAttribute('position', new THREE.BufferAttribute(wp, 3));
+    const trail = new THREE.Line(tg, new THREE.LineBasicMaterial({ vertexColors: true })), dots = new THREE.Points(tg, new THREE.PointsMaterial({ size: .06, vertexColors: true, sizeAttenuation: true })), wall = new THREE.Line(wg, new THREE.LineBasicMaterial({ color: 0x4fd1e8, transparent: true, opacity: .55 }));
+    [trail, dots, wall].forEach(o => { o.frustumCulled = false; sc3.add(o) });
+    const axis = new THREE.Line(new THREE.BufferGeometry().setFromPoints([V3(-3, 0, 0), V3(3, 0, 0)]), new THREE.LineBasicMaterial({ color: 0xd8a03d })); sc3.add(axis);
+    let plane = 'h'; const LL = 6.6, idle = t => [2.3 * Math.sin(.72 * t), 2.1 * Math.sin(.96 * t + .6)];
+    function P3(X, Z) { const r = Math.min(Math.hypot(X, Z), LL - .6); return [X, PY - Math.sqrt(LL * LL - r * r), Z] }
+    function upd3D(i, A, now) {
+      let c = 0, pt, th = 0;
+      if (D) {
+        if (plane === 'h') { const k = D.kh; pt = n => P3(D.x[n] * k, -D.y[n] * k) } else { const k = 2 / D.R; pt = n => [D.x[n] * k, D.y[n] * k, Math.max(-1.5, Math.min(1.5, (D.z[n] || 0) * 2.2))] }
+        for (let n = Math.max(0, i - NP + 1); n <= i; n++) { if (D.x[n] == null) continue; tp.set(pt(n), c * 3); c++ }
+        if (D.x[i] != null) BOB.set(...pt(i)); th = (A.th || 0) * Math.PI / 180
+      }
+      else { plane = 'h'; pt = n => { const p = idle(now - n * .03); return P3(p[0], p[1]) }; for (let n = NP - 1; n >= 0; n--) { tp.set(pt(n), c * 3); c++ } BOB.set(...pt(0)) }
+      const H = plane === 'h';
+      for (let n = 0; n < c; n++) { const f = Math.pow((n + 1) / c, 1.6); tc[n * 3] = .85 * f; tc[n * 3 + 1] = .63 * f; tc[n * 3 + 2] = .24 * f; wp[n * 3] = tp[n * 3]; wp[n * 3 + 1] = H ? FY + .03 : tp[n * 3 + 1]; wp[n * 3 + 2] = H ? tp[n * 3 + 2] : -2.44 }
+      if (H) { axis.position.set(0, FY + .04, 0); axis.rotation.set(0, th, 0) } else { axis.position.set(0, 0, -2.45); axis.rotation.set(0, 0, th) }
+      tg.setDrawRange(0, c); wg.setDrawRange(0, c); tg.attributes.position.needsUpdate = tg.attributes.color.needsUpdate = wg.attributes.position.needsUpdate = true;
+      sb.lerp(BOB, .12); ball.position.copy(BOB); glow.position.copy(BOB); KN.copy(M1).lerp(BOB, .45); link(sA, A1, KN); link(sB, B1, KN); link(sC, KN, BOB)
+    }
+    const sb = V3(0, 0, 0);
+    /* camera director */
+    let mode = 'match', mAz = .5, mEl = .15, mR = 15, cur = 0, first = true, lastFov = 46; const camP = V3(0, 2, 10), camL = V3(), tP = V3(), tL = V3();
+    const SH = [{ n: 'Establishing orbit', d: 8, f: (u, o) => { o.p.set(Math.sin(.5 + u * .2) * 14, 3 + u * .06, Math.cos(.5 + u * .2) * 14); o.l.set(0, .8, 0); o.fov = 46 } },
+    { n: 'Dolly in', d: 7, f: (u, o) => { const k = sm(u / 7); o.p.set(1.6 - k * 1.3, 1.4, 16 - k * 8); o.l.set(0, .8, 0).lerp(sb, k); o.fov = 54 - k * 16 } },
+    { n: 'Crane down', d: 7, f: (u, o) => { const k = sm(u / 7); o.p.set(4 + k * 2, 9 - k * 8, 9 - k * 2); o.l.set(0, .8 - k * 1.8, 0).lerp(sb, k * .7); o.fov = 44 } },
+    { n: 'Follow cam', d: 8, f: (u, o) => { o.p.set(sb.x - 2.6, sb.y * .6 + .9, sb.z + 3.8); o.l.copy(sb); o.fov = 40 } },
+    { n: 'Top-down', d: 7, f: (u, o) => { const a = .4 + u * .08; o.p.set(Math.sin(a) * 2.2, 14, Math.cos(a) * 2.2 + .5); o.l.set(0, -2, 0); o.fov = 46 } },
+    { n: 'Low angle', d: 7, f: (u, o) => { const a = -.9 + u * .09; o.p.set(Math.sin(a) * 10, FY + .9, Math.cos(a) * 10); o.l.set(0, .6, 0).lerp(sb, .4); o.fov = 58 } }];
+    const TOT = SH.reduce((s, x) => s + x.d, 0), SA = { p: V3(), l: V3(), fov: 46 }, SB = { p: V3(), l: V3(), fov: 46 };
+    function director(now) {
+      if (mode === 'follow') { SH[3].f(now % 8, SA); cur = 3; return SA }
+      let tt = now % TOT, k = 0; while (tt >= SH[k].d) { tt -= SH[k].d; k++ } SH[k].f(tt, SA); cur = k; const B = SH[k].d - 1.3;
+      if (tt > B) { const n = (k + 1) % SH.length; SH[n].f(0, SB); const w = sm((tt - B) / 1.3); SA.p.lerp(SB.p, w); SA.l.lerp(SB.l, w); SA.fov += (SB.fov - SA.fov) * w; if (w > .5) cur = n } return SA
+    }
+    function setMode(m) {
+      mode = m; const P = { front: [0, .08, 15], side: [1.5708, .08, 15], top: [.3, 1.5, 15] }; if (P[m]) { [mAz, mEl, mR] = P[m] }
+      document.querySelectorAll('#cams [data-m]').forEach(b => b.setAttribute('aria-pressed', b.dataset.m === m)); const c = m === 'auto' || m === 'follow'; $('sw').classList.toggle('cin', c); $('cap').classList.toggle('on', c)
+    }
+    $('cams').onclick = e => { const d = e.target.dataset; if (d.m) setMode(d.m); if (d.p) { plane = d.p; document.querySelectorAll('#cams [data-p]').forEach(b => b.setAttribute('aria-pressed', b.dataset.p === plane)) } }; setMode('match');
+    let dr = false, lx = 0, ly = 0; const cv = ren.domElement; cv.onpointerdown = e => { dr = true; lx = e.clientX; ly = e.clientY; cv.setPointerCapture(e.pointerId) }; cv.onpointerup = () => dr = false;
+    cv.onpointermove = e => {
+      if (!dr) return; if (mode === "auto" || mode === "follow" || mode === "match") { const a = Math.atan2(camP.x, camP.z), r = Math.hypot(camP.x, camP.z); mAz = a; mR = Math.hypot(r, camP.y - .9); mEl = Math.asin((camP.y - .9) / mR); mode = 'free'; setMode('free') }
+      mAz -= (e.clientX - lx) * .008; mEl = Math.max(-.2, Math.min(1.45, mEl + (e.clientY - ly) * .008)); lx = e.clientX; ly = e.clientY
+    };
+    cv.onwheel = e => { e.preventDefault(); if (mode === 'auto' || mode === 'follow' || mode === 'match') { mR = Math.hypot(camP.x, camP.y - .9, camP.z); setMode('free') } mR = Math.max(5, Math.min(20, mR + e.deltaY * .012)) };
+    new ResizeObserver(() => { const w = S3.clientWidth, h = S3.clientHeight; if (!w || !h) return; ren.setPixelRatio(Math.min(devicePixelRatio, 2)); ren.setSize(w, h); cam.aspect = w / h; cam.updateProjectionMatrix() }).observe(S3);
+    function frame3D(now) {
+      let fov; if (mode === 'auto' || mode === 'follow') { const s = director(now); tP.copy(s.p); tL.copy(s.l); fov = s.fov; const cp = $('cap'); if (cp.textContent !== SH[cur].n) cp.textContent = SH[cur].n }
+      else if (mode === 'match') {
+        // fixed camera: screen-right = video-right, screen-up = video-up (top view for "horizontal", front view for "vertical")
+        if (plane === 'h') { tP.set(0, 22, .001); tL.set(0, -2, 0); fov = 28 } else { tP.set(0, .3, 15); tL.set(0, .3, 0); fov = 46 }
+        const cp = $('cap'); if (cp.textContent !== 'Matches video view') cp.textContent = 'Matches video view'
+      }
+      else { const ce = Math.cos(mEl); tP.set(mR * ce * Math.sin(mAz), .9 + mR * Math.sin(mEl), mR * ce * Math.cos(mAz)); tL.set(0, .9, 0); fov = 46 }
+      if (first) { camP.copy(tP); camL.copy(tL); first = false } else { camP.lerp(tP, .1); camL.lerp(tL, .15) }
+      cam.position.copy(camP); if (mode === 'auto' || mode === 'follow') cam.position.add(V3(Math.sin(now * 1.7) * .02, Math.sin(now * 2.3) * .015, Math.sin(now * 1.1) * .02)); cam.up.copy(mode === 'match' && plane === 'h' ? UPTOP : UP); cam.lookAt(camL);
+      if (Math.abs(fov - lastFov) > .01) { lastFov += (fov - lastFov) * .1; cam.fov = lastFov; cam.updateProjectionMatrix() } ren.render(sc3, cam)
+    }
+    /* ---------- result-video export (full single-screen layout, start→finish) ---------- */
+    let recording = false, recChunks = [], mediaRec = null, exportCv = null, exportCtx = null, recBtnLabel = null;
+    const REC_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+    function fitCover(sw, sh, dw, dh) { const r = Math.min(dw / sw, dh / sh), w = sw * r, h = sh * r; return [(dw - w) / 2, (dh - h) / 2, w, h] }
+    function paintPanel(ctx, x, y, w, h, title) { ctx.fillStyle = '#132229'; ctx.fillRect(x, y, w, h); ctx.strokeStyle = '#25404a'; ctx.strokeRect(x + .5, y + .5, w - 1, h - 1); ctx.fillStyle = '#8ba3ab'; ctx.font = '600 13px Manrope,sans-serif'; ctx.fillText(title, x + 10, y + 18) }
+    function compositeFrame() {
+      if (!exportCtx || !D) return; const W = exportCv.width, H = exportCv.height, g = exportCtx, pad = 10, gap = 8, botH = 110;
+      const topH = H - botH - pad * 2 - gap, leftW = Math.floor((W - pad * 2 - gap) * .42), rightW = W - pad * 2 - gap - leftW;
+      const vidH = Math.floor(topH * .68), plotH = topH - vidH - gap;
+      g.fillStyle = '#0b1418'; g.fillRect(0, 0, W, H);
+      // video + overlay
+      paintPanel(g, pad, pad, leftW, vidH, 'Video tracking');
+      const vx = pad + 6, vy = pad + 24, vw = leftW - 12, vh = vidH - 30;
+      g.fillStyle = '#000'; g.fillRect(vx, vy, vw, vh);
+      if (V.readyState >= 2) { const [dx, dy, dw, dh] = fitCover(V.videoWidth || 1, V.videoHeight || 1, vw, vh); g.drawImage(V, vx + dx, vy + dy, dw, dh); if (O.width) { g.drawImage(O, 0, 0, O.width, O.height, vx + dx, vy + dy, dw, dh) } }
+      // trajectory
+      paintPanel(g, pad, pad + vidH + gap, leftW, plotH, 'Trajectory y vs x');
+      const c2 = $('c2'); if (c2.width) { const [dx, dy, dw, dh] = fitCover(c2.width, c2.height, leftW - 12, plotH - 30); g.drawImage(c2, pad + 6 + dx, pad + vidH + gap + 24 + dy, dw, dh) }
+      // 3D
+      paintPanel(g, pad + leftW + gap, pad, rightW, vidH, '3D view');
+      const c3 = ren.domElement; if (c3.width) { const [dx, dy, dw, dh] = fitCover(c3.width, c3.height, rightW - 12, vidH - 30); g.drawImage(c3, pad + leftW + gap + 6 + dx, pad + 24 + dy, dw, dh) }
+      // time series
+      paintPanel(g, pad + leftW + gap, pad + vidH + gap, rightW, plotH, 'x(t), y(t), θ(t)');
+      const ct = $('ct'); if (ct.width) { const [dx, dy, dw, dh] = fitCover(ct.width, ct.height, rightW - 12, plotH - 30); g.drawImage(ct, pad + leftW + gap + 6 + dx, pad + vidH + gap + 24 + dy, dw, dh) }
+      // bottom: live values + whole-clip
+      const by = pad + topH + gap; paintPanel(g, pad, by, leftW, botH, 'Live values');
+      const keys = [['t', 't'], ['x', 'x'], ['y', 'y'], ['Tx', 'Tx'], ['Ty', 'Ty'], ['fx', 'fx'], ['fy', 'fy'], ['df', 'Δf'], ['th', 'θ'], ['thr', 'θ̇']];
+      g.font = '12px Manrope,sans-serif'; keys.forEach((k, i) => {
+        const col = i % 5, row = Math.floor(i / 5), bx = pad + 10 + col * ((leftW - 20) / 5), byy = by + 36 + row * 32;
+        const el = $('v_' + k[0]); g.fillStyle = '#8ba3ab'; g.fillText(k[1], bx, byy); g.fillStyle = '#e6eef0'; g.font = '600 14px Manrope,sans-serif'; g.fillText(el ? el.textContent : '–', bx, byy + 16); g.font = '12px Manrope,sans-serif'
+      });
+      paintPanel(g, pad + leftW + gap, by, rightW, botH, 'Whole-clip results');
+      const s = D.summary || {}; g.fillStyle = '#e6eef0'; g.font = '12px Manrope,sans-serif';
+      const lines = [`Tx ${fmt(s.Tx, 3)} s · fx ${fmt(s.fx_peak, 4)} Hz (FFT ${fmt(s.fx_fft, 4)})`, `Ty ${fmt(s.Ty, 3)} s · fy ${fmt(s.fy_peak, 4)} Hz (FFT ${fmt(s.fy_fft, 4)})`, `Δf ${fmt(s.df_peak, 4)} Hz · θ drift ${fmt(s.theta_drift, 2)} °/s`, `Analysed ${fmt(s.t_start, 1)}–${fmt(s.t_end, 1)} s`];
+      lines.forEach((ln, i) => g.fillText(ln, pad + leftW + gap + 12, by + 36 + i * 18));
+      g.fillStyle = '#d8a03d'; g.font = '600 12px Manrope,sans-serif'; g.fillText('t = ' + V.currentTime.toFixed(2) + ' s', W - 140, H - 14)
+    }
+    function pickMime() { for (const m of ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm']) { if (window.MediaRecorder && MediaRecorder.isTypeSupported(m)) return m } return '' }
+    async function startResultVideo() {
+      if (!D || recording) return; const mime = pickMime(); if (!mime) { alert('This browser cannot record video (MediaRecorder/WebM missing). Try Chrome or Edge.'); return }
+      const s = D.summary || {}, t0 = s.t_start || 0, t1 = (s.t_end != null ? s.t_end : (V.duration || t0 + 1));
+      recording = true; recChunks = []; $('rec').disabled = true; $('rec').innerHTML = REC_ICON + ' Recording…'; $('pb').disabled = true;
+      exportCv = document.createElement('canvas'); exportCv.width = 1920; exportCv.height = 1080; exportCtx = exportCv.getContext('2d');
+      const stream = exportCv.captureStream(30); mediaRec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8e6 });
+      mediaRec.ondataavailable = e => { if (e.data && e.data.size) recChunks.push(e.data) };
+      mediaRec.onstop = () => {
+        const blob = new Blob(recChunks, { type: mime.split(';')[0] }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'pendulum_result.webm'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2e4);
+        recording = false; $('rec').disabled = false; $('rec').innerHTML = REC_ICON + ' Result video'; $('pb').disabled = false; V.pause(); exportCv = null; exportCtx = null; mediaRec = null
+      };
+      V.pause(); V.loop = false; V.playbackRate = 1; V.currentTime = t0;
+      await new Promise(r => { const on = () => { V.removeEventListener('seeked', on); r() }; V.addEventListener('seeked', on); setTimeout(r, 800) });
+      mediaRec.start(200); const p = V.play(); if (p) p.catch(() => { });
+      const stopAt = () => { if (!recording) return; if (V.currentTime >= t1 - .02 || V.ended) { try { mediaRec.stop() } catch (_) { } V.pause(); V.loop = true; return } requestAnimationFrame(stopAt) };
+      requestAnimationFrame(stopAt)
+    }
+    $('rec').onclick = () => startResultVideo();
+    /* ---------- main loop ---------- */
+    function tick() {
+      requestAnimationFrame(tick); const now = performance.now() / 1000;
+      if (!D) { upd3D(0, {}, now); frame3D(now); return }
+      const t = V.currentTime, i = Math.min(D.n - 1, Math.max(0, Math.round(t * D.fps))), A = rowAt(t) || {}, ok = D.x[i] != null; set('t', t);
+      if (V.duration) { $('tm').textContent = t.toFixed(1) + ' / ' + V.duration.toFixed(1) + ' s'; if (!seeking) $('sk').value = t / V.duration * 1000 }
+      oc.clearRect(0, 0, O.width, O.height);
+      if (ok) {
+        const x = D.x[i], y = D.y[i], q = Math.max(0, i - 3); let spd = NaN; if (D.x[q] != null) spd = Math.hypot(x - D.x[q], y - D.y[q]) * D.fps / (i - q || 1);
+        set('x', x); set('y', y); set('r', Math.hypot(x, y)); set('phi', Math.atan2(y, x) * 180 / Math.PI, 1); set('spd', spd, 1); set('z', D.z[i]);
+        set('A', D.A && D.A[i] != null ? D.A[i] : null, 2);
+        oc.strokeStyle = '#4fd1e8'; oc.lineWidth = 3; oc.beginPath(); let st = false; for (let k = Math.max(0, i - 45); k <= i; k++) { if (D.px[k] == null) continue; st ? oc.lineTo(D.px[k], D.py[k]) : oc.moveTo(D.px[k], D.py[k]); st = true } oc.stroke();
+        if (D.px[i] != null) {
+          const rr = (D.sz && D.sz[i]) ? Math.max(10, D.sz[i] * 0.9) : 30, lw = Math.max(3, O.width / 320), meas = !D.meas || D.meas[i] === 1, col = meas ? '#d8a03d' : '#ff6b6b';
+          oc.strokeStyle = col; oc.fillStyle = col; oc.lineWidth = lw * 1.4; oc.setLineDash(meas ? [] : [8, 6]); oc.beginPath(); oc.arc(D.px[i], D.py[i], rr, 0, 6.3); oc.stroke(); oc.setLineDash([]);
+          oc.beginPath(); oc.moveTo(D.px[i] - rr * .6, D.py[i]); oc.lineTo(D.px[i] + rr * .6, D.py[i]); oc.moveTo(D.px[i], D.py[i] - rr * .6); oc.lineTo(D.px[i], D.py[i] + rr * .6); oc.stroke();
+          oc.font = '600 ' + Math.max(14, Math.round(O.width / 45)) + 'px sans-serif'; oc.fillText('x ' + x.toFixed(1) + '  y ' + y.toFixed(1) + (meas ? '' : '  (interp.)'), Math.min(D.px[i] + rr + 8, O.width - 10 * Math.max(14, O.width / 45)), Math.max(18, D.py[i] - rr))
+        }
+      } else if (D.n) {
+        ['x', 'y', 'r', 'phi', 'spd', 'z', 'A'].forEach(k => set(k, null));
+        oc.fillStyle = 'rgba(255,107,107,.95)'; oc.font = '600 ' + Math.max(16, Math.round(O.width / 40)) + 'px sans-serif'; oc.fillText('Ball not tracked in this part of the video', 14, Math.max(26, O.height / 20))
+      }
+      set('Tx', A.Tx, 3); set('Ty', A.Ty, 3); set('fx', A.Tx ? 1 / A.Tx : null, 3); set('fy', A.Ty ? 1 / A.Ty : null, 3); set('df', A.Tx && A.Ty ? 1 / A.Tx - 1 / A.Ty : null, 3);
+      set('fr', A.Tx && A.Ty ? A.Ty / A.Tx : null, 3); set('th', A.th, 1); set('thr', A.rate, 2); set('ecc', A.ecc, 2);
+      draw2D(i, A); drawTS(i, t); upd3D(i, A, now); frame3D(now);
+      if (recording) compositeFrame()
+    }
+    tick();
+  </script>
+</body>
+
+</html>
